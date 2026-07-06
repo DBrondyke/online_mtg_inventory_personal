@@ -327,13 +327,6 @@ def search_inventory(
 
     return pd.DataFrame([dict(r) for r in rows], columns=columns)
 
-def availability_text(total_stock) -> str:
-    try:
-        return "In Stock" if int(total_stock) > 0 else "Out of Stock"
-    except Exception:
-        return "Out of Stock"
-
-
 def show_admin_panel() -> None:
     st.subheader("Admin Tools")
     st.caption("Only logged-in admin users can see this section.")
@@ -478,7 +471,7 @@ with left:
             ]
         ].copy()
 
-        display_df["availability"] = display_df["total_stock"].apply(availability_text)
+        display_df["stock_count"] = display_df["total_stock"].fillna(0).astype(int)
 
         event = st.dataframe(
             display_df,
@@ -493,7 +486,7 @@ with left:
                 "color_identity",
                 "type_line",
                 "price",
-                "availability",
+                "stock_count",
                 "set_code",
                 "collector_number",
             ],
@@ -504,7 +497,7 @@ with left:
                 "color_identity": st.column_config.TextColumn("Color", width="small"),
                 "type_line": st.column_config.TextColumn("Type", width="medium"),
                 "price": st.column_config.NumberColumn("Price", format="$%.2f"),
-                "availability": st.column_config.TextColumn("Availability", width="small"),
+                "stock_count": st.column_config.TextColumn("Stock", width="small"),
                 "set_code": st.column_config.TextColumn("Set Code", width="small"),
                 "collector_number": st.column_config.TextColumn("Collector #", width="small"),
             },
@@ -527,7 +520,7 @@ with right:
             st.write(f"**Cost:** {selected_row['mana_cost'] or '—'}")
             st.write(f"**Color:** {selected_row['color_identity'] or 'Colorless'}")
             st.write(f"**Type:** {selected_row['type_line'] or '—'}")
-            st.write(f"**Availability:** {availability_text(selected_row['total_stock'])}")
+            st.write(f"**Stock:** {int(selected_row['total_stock'])}")
             st.write(f"**Price:** ${float(selected_row['price']):.2f}" if selected_row["price"] is not None else "**Price:** —")
 
             st.text_area(
