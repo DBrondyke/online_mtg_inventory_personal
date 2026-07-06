@@ -170,6 +170,7 @@ def search_inventory(
     subtype_mode: str,
     min_stock: int,
     color_filter: str,
+    color_mode: str,
     max_price: Optional[float],
     in_stock_only: bool,
 ) -> pd.DataFrame:
