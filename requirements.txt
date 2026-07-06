@@ -3,4 +3,3 @@ pandas
 psycopg[binary]
 python-dotenv
 requests
-streamlit
