@@ -349,7 +349,7 @@ with right:
                 disabled=True,
             )
 
-if is_admin_user():
+if st.session_state.get("admin_authenticated", False):
     st.divider()
     show_admin_panel()
 
