@@ -1,5 +1,6 @@
 import os
 import tempfile
+import hmac
 from typing import Optional
 
 import pandas as pd
@@ -19,12 +20,6 @@ st.set_page_config(
     layout="wide",
 )
 
-# Replace with your real admin email(s)
-ALLOWED_ADMIN_EMAILS = {
-    "levibrondyke@gmail.com",
-}
-
-
 def get_database_url() -> str:
     db_url = os.getenv("DATABASE_URL")
     if db_url:
@@ -39,12 +34,39 @@ def get_connection():
     )
 
 
-def is_admin_user() -> bool:
-    return (
-        st.user.is_logged_in
-        and bool(getattr(st.user, "email", None))
-        and st.user.email in ALLOWED_ADMIN_EMAILS
+def password_check() -> bool:
+    if st.session_state.get("admin_authenticated", False):
+        return True
+    
+    def try_login():
+        entered = st.session_state.get("admin_password_input", "")
+        expected = st.secrets["admin"]["password"]
+        
+        if hmac.compare_digest(entered, expected):
+            st.session_state["admin_authenticated"] = True
+            st.session_state["admin_password_input"] = ""
+            st.session_state["admin_login_error"] = ""
+        else:
+            st.session_state["admin_authenticated"] = False
+            st.session_state["admin_login_error"] = "Incorrect password."
+    
+    st.subheader("Admin Access")
+    st.text_input(
+        "Admin password",
+        type="password",
+        key="admin_password_input",
     )
+    st.button("Unlock admin tools", on_click=try_login, width="stretch")
+    
+    if st.session_state.get("admin_login_error"):
+        st.error(st.session_state["admin_login_error"])
+    
+    return False
+
+def admin_logout():
+    st.session_state["admin_authenticated"] = False
+    st.session_state["admin_password_input"] = ""
+    st.session_state["admin_login_error"] = ""
 
 
 def search_inventory(
@@ -175,13 +197,6 @@ def show_admin_panel() -> None:
     st.subheader("Admin Tools")
     st.caption("Only logged-in admin users can see this section.")
 
-    admin_col1, admin_col2 = st.columns([1, 1])
-
-    with admin_col1:
-        st.button("Log out", on_click=st.logout, width="content")
-
-    with admin_col2:
-        st.write(f"Signed in as: **{st.user.email}**")
 
     uploaded_file = st.file_uploader(
         "Upload inventory CSV",
@@ -222,17 +237,6 @@ with header_right:
     st.caption("Public browse view with login-protected admin upload tools")
 
 with st.sidebar:
-    if not st.user.is_logged_in:
-        if st.button("Admin login"):
-            st.login()
-        st.stop()
-        #st.button("Admin login", on_click=st.login, width="stretch")
-        st.caption("Only approved email addresses can access upload tools.")
-    else:
-        st.success(f"Logged in as {st.user.email}")
-        if not is_admin_user():
-            st.warning("This account is signed in, but not authorized for admin tools.")
-    
     st.header("Filters")
     name_query = st.text_input("Card name")
     set_query = st.text_input("Set name or code")
@@ -246,6 +250,15 @@ with st.sidebar:
     if max_price_enabled:
         max_price = st.number_input("Max price", min_value=0.0, step=1.0, format="%.2f")
     in_stock_only = st.checkbox("Only show cards in stock", value=True)
+    
+    st.divider()
+    st.subheader("Admin Access")
+    if st.session_state.get("admin_authenticated", False):
+        st.success("Admin tools unlocked")
+        st.button("Lock admin tools", on_click=admin_logout, width="stretch")
+    else:
+        password_check()
+        st.caption("Only someone with the admin password can upload or change inventory.")
 
 results_df = search_inventory(
     name_query=name_query,
