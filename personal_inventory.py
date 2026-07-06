@@ -236,7 +236,7 @@ def search_inventory(
             sql += " AND cp.oracle_text LIKE %s"
             params.append(f"%{word}%")
     
-    color_clause, color_params = build_color_clause(selected_colors, color_mode)
+    color_clause, color_params = build_color_clause(color_filter, color_mode)
     sql += color_clause
     params.extend(color_params)
 
