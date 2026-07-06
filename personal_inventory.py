@@ -384,6 +384,7 @@ with header_right:
 with st.sidebar:
     st.header("Filters")
     name_query = st.text_input("Card name")
+    oracle_query = st.text_input("Oracle text contains")
     set_query = st.text_input("Set name or code")
     color_filter = st.selectbox(
         "Color",
