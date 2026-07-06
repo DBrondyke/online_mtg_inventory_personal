@@ -2,6 +2,7 @@ import os
 import tempfile
 import hmac
 from typing import Optional
+from personal_inventory_import import main as run_personal_import
 
 import pandas as pd
 import psycopg
@@ -326,7 +327,21 @@ def availability_text(total_stock) -> str:
 def show_admin_panel() -> None:
     st.subheader("Admin Tools")
     st.caption("Only logged-in admin users can see this section.")
-
+    
+    import_type_label = st.selectbox(
+        "Import type",
+        ["Manual stock CSV", "ManaBox Export"],
+    )
+    
+    manual_mode = "set"
+    if import_type_label == "Manual stock CSV":
+        manual_mode_label = st.selectbox(
+            "Manual mode",
+            ["Set", "Add", "Remove"],
+        )
+        manual_mode = manual_mode_label.lower()
+    
+    import_type = "manual" if import_type_label == "Manual stock CSV" else "manabox"
 
     uploaded_file = st.file_uploader(
         "Upload inventory CSV",
@@ -351,7 +366,7 @@ def show_admin_panel() -> None:
                 temp_path = tmp.name
 
             try:
-                run_personal_import(temp_path)
+                run_personal_import(temp_path, import_type=import_type_value, manual_mode=manual_mode_value,)
                 st.success("Import completed.")
             except Exception as e:
                 st.error(f"Import failed: {e}")
@@ -420,6 +435,14 @@ results_df = search_inventory(
     color_filter=color_filter,
     max_price=max_price,
     in_stock_only=in_stock_only,
+    oracle_query=oracle_query,
+    color_mode=color_mode,
+    selected_types=selected_types,
+    type_mode=type_mode,
+    selected_subtypes=selected_subtypes,
+    subtype_text=subtype_text,
+    subtype_mode=subtype_mode,
+    min_stock=min_stock,
 )
 
 left, right = st.columns([3, 2])
