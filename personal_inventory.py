@@ -270,22 +270,6 @@ def search_inventory(
         params.append(max_price)
 
     sql += """
-        GROUP BY
-            cp.set_code,
-            cp.collector_number
-    )
-    SELECT
-        card_name,
-        set_name,
-        set_code,
-        collector_number,
-        mana_cost,
-        color_identity,
-        type_line,
-        oracle_text,
-        total_stock,
-        price
-    FROM grouped_inventory
     ORDER BY
         card_name,
         set_name,
