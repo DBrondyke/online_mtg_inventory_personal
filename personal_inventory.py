@@ -221,7 +221,7 @@ def search_inventory(
         sql += " AND i.stock > 0"
     
     if min_stock > 0:
-        base_sql += " AND i.stock >= %s"
+        sql += " AND i.stock >= %s"
         params.append(min_stock)
     
     if name_query.strip():
@@ -231,15 +231,15 @@ def search_inventory(
     if oracle_query.strip():
         words = [w.strip() for w in oracle_query.split() if w.strip()]
         for word in words:
-            base_sql += " AND cp.oracle_text LIKE %s"
+            sql += " AND cp.oracle_text LIKE %s"
             params.append(f"%{word}%")
     
     color_clause, color_params = build_color_clause(selected_colors, color_mode)
-    base_sql += color_clause
+    sql += color_clause
     params.extend(color_params)
 
     type_clause, type_params = build_type_clause(selected_types, type_mode)
-    base_sql += type_clause
+    sql += type_clause
     params.extend(type_params)
     
     if set_query.strip():
