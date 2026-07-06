@@ -220,10 +220,15 @@ with header_left:
 with header_right:
     st.title("Personal Inventory")
     st.caption("Public browse view with login-protected admin upload tools")
+    st.write("Auth config present:", "auth" in st.secrets)
+    st.write("Logged in:", st.user.is_logged_in)
 
 with st.sidebar:
     if not st.user.is_logged_in:
-        st.button("Admin login", on_click=st.login, width="stretch")
+        if not st.user.is_logged_in:
+            if st.button("Admin login"):
+                st.login()
+        #st.button("Admin login", on_click=st.login, width="stretch")
         st.caption("Only approved email addresses can access upload tools.")
     else:
         st.success(f"Logged in as {st.user.email}")
