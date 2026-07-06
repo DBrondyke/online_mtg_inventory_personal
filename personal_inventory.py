@@ -232,7 +232,13 @@ with st.sidebar:
         st.success(f"Logged in as {st.user.email}")
         if not is_admin_user():
             st.warning("This account is signed in, but not authorized for admin tools.")
-
+    
+    st.write("Logged in:", st.user.is_logged_in)
+    st.write("Email:", st.user.email)
+    
+    if st.button("Log out"):
+        st.logout()
+    
     st.header("Filters")
     name_query = st.text_input("Card name")
     set_query = st.text_input("Set name or code")
