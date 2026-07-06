@@ -8,6 +8,41 @@ import psycopg
 from psycopg.rows import dict_row
 import streamlit as st
 
+COLOR_OPTIONS = ["White", "Blue", "Black", "Red", "Green", "Colorless"]
+TYPE_OPTIONS = ["Creature", "Instant", "Sorcery", "Artifact", "Enchantment", "Planeswalker", "Land","Battle"]
+
+COMMON_SUBTYPES = [
+    "Angel",
+    "Artifact",
+    "Assassin",
+    "Cat",
+    "Cleric",
+    "Demon",
+    "Dragon",
+    "Dinosaur",
+    "Eldrazi",
+    "Elf",
+    "Faerie",
+    "Goblin",
+    "Human",
+    "Knight",
+    "Merfolk",
+    "Ninja",
+    "Pirate",
+    "Plant",
+    "Rat",
+    "Shaman",
+    "Sliver",
+    "Soldier",
+    "Spirit",
+    "Treefolk",
+    "Vampire",
+    "Warrior",
+    "Wizard",
+    "Zombie",
+]
+
+
 try:
     from personal_inventory_import import main as run_personal_import
 except Exception:
@@ -68,28 +103,102 @@ def admin_logout():
     st.session_state["admin_password_input"] = ""
     st.session_state["admin_login_error"] = ""
 
+def build_color_clause(colors: List[str], mode: str) -> tuple[str, list]:
+    if not colors:
+        return "", []
+
+    clauses = []
+    params = []
+
+    if mode == "Exactly these colors":
+        if len(colors) == 5:
+            exact_value = "All"
+        else:
+            exact_value = "/".join(colors)
+        return " AND cp.color_identity = %s", [exact_value]
+
+    if mode == "Contains all selected colors":
+        for color in colors:
+            clauses.append("cp.color_identity LIKE %s")
+            params.append(f"%{color}%")
+        return " AND " + " AND ".join(clauses), params
+
+    if mode == "Commander identity":
+        excluded_colors = [c for c in COLOR_OPTIONS if c not in colors]
+        for color in excluded_colors:
+            clauses.append("(cp.color_identity IS NULL OR cp.color_identity = '' OR cp.color_identity NOT LIKE %s)")
+            params.append(f"%{color}%")
+        return " AND " + " AND ".join(clauses), params
+
+    if mode == "Contains any selected color":
+        for color in colors:
+            clauses.append("cp.color_identity LIKE %s")
+            params.append(f"%{color}%")
+        return " AND (" + " OR ".join(clauses) + ")", params
+
+    return "", []
+
+
+def build_type_clause(types: List[str], mode: str) -> tuple[str, list]:
+    if not types:
+        return "", []
+
+    clauses = []
+    params = []
+
+    if mode == "Must include all selected types":
+        for t in types:
+            clauses.append("cp.type_line LIKE %s")
+            params.append(f"%{t}%")
+        return " AND " + " AND ".join(clauses), params
+
+    for t in types:
+        clauses.append("cp.type_line LIKE %s")
+        params.append(f"%{t}%")
+    return " AND (" + " OR ".join(clauses) + ")", params
 
 def search_inventory(
     *,
     name_query: str,
     set_query: str,
+    oracle_query: str,
+    selected_types: List[str],
+    type_mode: str,
+    selected_subtypes: List[str],
+    subtype_text: str,
+    subtype_mode: str,
+    min_stock: int,
     color_filter: str,
     max_price: Optional[float],
     in_stock_only: bool,
 ) -> pd.DataFrame:
     sql = """
-    WITH grouped_inventory AS (
-        SELECT
-            MIN(cp.card_name) AS card_name,
-            MIN(cp.set_name) AS set_name,
-            cp.set_code,
-            cp.collector_number,
-            MIN(cp.mana_cost) AS mana_cost,
-            MIN(cp.color_identity) AS color_identity,
-            MIN(cp.type_line) AS type_line,
-            MIN(cp.oracle_text) AS oracle_text,
-            SUM(i.stock) AS total_stock,
-            MIN(
+    SELECT
+        cp.collector_number,
+        cp.card_name,
+        cp.set_code,
+        cp.set_name,
+        cp.standard_legal,
+        cp.commander_legal,
+        cp.color_identity,
+        cp.mana_cost,
+        cp.mana_value,            
+        cp.type_line,
+        cp.oracle_text,
+        i.stock,
+        i.finish,
+        ROUND(
+            CASE
+                WHEN i.override_value IS NOT NULL THEN i.override_value
+                WHEN i.finish = 'nonfoil' THEN COALESCE(cp.usd_price, cp.usd_foil_price, cp.usd_etched_price, cp.rarity_floor_value)
+                WHEN i.finish = 'foil' THEN COALESCE(cp.usd_foil_price, cp.usd_price, cp.usd_etched_price, cp.rarity_floor_value)
+                WHEN i.finish = 'etched' THEN COALESCE(cp.usd_etched_price, cp.usd_foil_price, cp.usd_price, cp.rarity_floor_value)
+                ELSE COALESCE(cp.usd_price, cp.usd_foil_price, cp.usd_etched_price, cp.rarity_floor_value)
+            END,
+            2
+        ) AS unit_value,
+        ROUND(
+            i.stock * (
                 CASE
                     WHEN i.override_value IS NOT NULL THEN i.override_value
                     WHEN i.finish = 'nonfoil' THEN COALESCE(cp.usd_price, cp.usd_foil_price, cp.usd_etched_price, cp.rarity_floor_value)
@@ -97,21 +206,42 @@ def search_inventory(
                     WHEN i.finish = 'etched' THEN COALESCE(cp.usd_etched_price, cp.usd_foil_price, cp.usd_price, cp.rarity_floor_value)
                     ELSE COALESCE(cp.usd_price, cp.usd_foil_price, cp.usd_etched_price, cp.rarity_floor_value)
                 END
-            ) AS price
-        FROM inventory i
-        JOIN card_printings cp
-          ON cp.scryfall_id = i.scryfall_id
-        WHERE i.stock >= 0
+            ),
+            2
+        ) AS total_value,
+        cp.scryfall_id
+    FROM inventory i
+    JOIN card_printings cp
+      ON cp.scryfall_id = i.scryfall_id
+    WHERE 1=1
     """
-    params = []
+    params: list = []
 
     if in_stock_only:
         sql += " AND i.stock > 0"
-
+    
+    if min_stock > 0:
+        base_sql += " AND i.stock >= %s"
+        params.append(min_stock)
+    
     if name_query.strip():
         sql += " AND cp.card_name ILIKE %s"
         params.append(f"%{name_query.strip()}%")
+    
+    if oracle_query.strip():
+        words = [w.strip() for w in oracle_query.split() if w.strip()]
+        for word in words:
+            base_sql += " AND cp.oracle_text LIKE %s"
+            params.append(f"%{word}%")
+    
+    color_clause, color_params = build_color_clause(selected_colors, color_mode)
+    base_sql += color_clause
+    params.extend(color_params)
 
+    type_clause, type_params = build_type_clause(selected_types, type_mode)
+    base_sql += type_clause
+    params.extend(type_params)
+    
     if set_query.strip():
         sql += " AND (cp.set_name ILIKE %s OR LOWER(cp.set_code) = %s)"
         params.append(f"%{set_query.strip()}%")
@@ -245,12 +375,36 @@ with st.sidebar:
         ["All", "White", "Blue", "Black", "Red", "Green", "Colorless"],
         index=0,
     )
+    color_mode = st.selectbox(
+        "Color match mode",
+        [
+            "Contains all selected colors",
+            "Contains any selected color",
+            "Exactly these colors",
+            "Commander identity",
+        ],
+        index=0,
+    )
+    selected_types = st.multiselect("Type contains", TYPE_OPTIONS)
+    type_mode = st.selectbox(
+        "Type match mode",
+        ["Must include any selected type", "Must include all selected types"],
+        index=0,
+    )
+
+    selected_subtypes = st.multiselect("Subtype contains", COMMON_SUBTYPES)
+    subtype_text = st.text_input("Extra subtypes (comma-separated)")
+    subtype_mode = st.selectbox(
+        "Subtype match mode",
+        ["Must include any selected subtype", "Must include all selected subtypes"],
+        index=0,
+    )
     max_price_enabled = st.checkbox("Set max price")
     max_price = None
     if max_price_enabled:
         max_price = st.number_input("Max price", min_value=0.0, step=1.0, format="%.2f")
     in_stock_only = st.checkbox("Only show cards in stock", value=True)
-    
+    min_stock = st.number_input("Minimum stock", min_value=0, value=0, step=1)
     st.divider()
     st.subheader("Admin Access")
     if st.session_state.get("admin_authenticated", False):
