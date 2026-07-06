@@ -226,7 +226,7 @@ with st.sidebar:
         if not st.user.is_logged_in:
             if st.button("Admin login"):
                 st.login()
-            st.stop()
+            #st.stop()
         #st.button("Admin login", on_click=st.login, width="stretch")
         st.caption("Only approved email addresses can access upload tools.")
     else:
