@@ -218,10 +218,8 @@ with header_left:
     st.markdown("## 🃏")
 
 with header_right:
-    st.title("Personal Inventory")
+    st.title("Dustin B's Inventory")
     st.caption("Public browse view with login-protected admin upload tools")
-    st.write("Auth config present:", "auth" in st.secrets)
-    st.write("Logged in:", st.user.is_logged_in)
 
 with st.sidebar:
     if not st.user.is_logged_in:
