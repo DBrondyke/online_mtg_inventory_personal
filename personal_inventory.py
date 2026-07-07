@@ -211,7 +211,7 @@ def clean_text(value, fallback="-"):
     if value is None:
         return fallback
     text = str(value).strip()
-    if text == "" or text.lower() == "none":
+    if text == "" or text.lower() == "none" or text.lower() == "nan":
         return fallback
     return text
 
@@ -541,6 +541,7 @@ else:
     display_df["stock_count"] = display_df["total_stock"].fillna(0).astype(int)
     display_df["mana_cost_display"] = display_df["mana_cost"].apply(lambda v: clean_text(v, "-"))
     display_df["color_identity_display"] = display_df["color_identity"].apply(lambda v: clean_text(v, "-"))
+    display_df["oracle_text_display"] = display_df["oracle_text"].apply(lambda v: clean_text(v, "-"))
     
     selected_rows = get_selected_rows()
     
@@ -583,7 +584,7 @@ else:
 
             st.text_area(
                 "Oracle Text",
-                value=selected_row["oracle_text"] or "",
+                value=clean_text(selected_row["oracle_text"],"-"),
                 height=220,
                 disabled=True,
             )

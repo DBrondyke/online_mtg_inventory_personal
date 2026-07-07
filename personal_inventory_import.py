@@ -51,6 +51,59 @@ def row_value(row: dict, *keys: str) -> str:
             return str(row[key]).strip()
     return ""
 
+def combined_face_mana_cost(card: dict) -> Optional[str]:
+    top_level = card.get("mana_cost")
+    if top_level not in (None, ""):
+        return top_level
+    
+    faces = card.get("card_faces") or []
+    parts = []
+    for face in faces:
+        mana_cost = face.get("mana_cost")
+        if mana_cost:
+            parts.append(mana_cost)
+    
+    if not parts:
+        return None
+    
+    return " // ".join(parts)
+
+def combined_face_oracle_text(card: dict) -> Optional[str]:
+    top_level = card.get("oracle_text")
+    if top_level not in (None, ""):
+        return top_level
+    
+    faces = card.get("card_faces") or []
+    parts = []
+    
+    for face in faces:
+        name = (face.get("name") or "").strip()
+        text = (face.get("oracle_text") or "").strip()
+        
+        if name and text:
+            parts.append(f"{name}\n{text}")
+        elif text:
+            parts.append(text)
+    
+    if not parts:
+        return None
+    
+    return "\n\n//\n\n".join(parts)
+
+def combined_face_color_identity(card: dict) -> Optional[str]:
+    top_level = format_color_identity(card.get("color_identity", []))
+    if top_level is not None:
+        return top_level
+
+    faces = card.get("card_faces") or []
+    combined_colors = []
+
+    for face in faces:
+        for color in face.get("colors", []) or []:
+            if color not in combined_colors:
+                combined_colors.append(color)
+
+    return format_color_identity(combined_colors)
 
 def detect_import_type(fieldnames: list[str], requested_type: str) -> str:
     if requested_type in {"manual", "manabox"}:
@@ -203,13 +256,13 @@ def upsert_card_printing(conn, card: dict) -> None:
             card.get("collector_number"),
             card.get("set"),
             card.get("set_name"),
-            card.get("mana_cost"),
+            combined_face_mana_cost(card),
             card.get("cmc"),
-            card.get("mana_cost"),
-            format_color_identity(card.get("color_identity", [])),
+            combined_face_mana_cost(card),
+            combined_face_color_identity(card),
             card.get("rarity"),
             card.get("type_line"),
-            card.get("oracle_text"),
+            combined_face_oracle_text(card),
             None,
             clean_price(prices.get("usd")),
             clean_price(prices.get("usd_foil")),
