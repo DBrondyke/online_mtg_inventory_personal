@@ -543,6 +543,7 @@ else:
             render_inventory_table(display_df)
         
         with right:
+            selected_row = results_df.iloc[selected_rows[0]]
             st.subheader(selected_row["card_name"])
             st.write(f"**Set:** {selected_row['set_name']} ({selected_row['set_code']})")
             st.write(f"**Collector #:** {selected_row['collector_number']}")
