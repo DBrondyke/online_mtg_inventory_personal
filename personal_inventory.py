@@ -163,7 +163,7 @@ def build_type_clause(types: List[str], mode: str) -> tuple[str, list]:
 def render_inventory_table(df: pd.DataFrame):
     return st.dataframe(
         df,
-        key="inventory_table",
+        key=get_table_key(),
         width="stretch",
         hide_index=True,
         on_select="rerun",
@@ -193,7 +193,7 @@ def render_inventory_table(df: pd.DataFrame):
     )
 
 def get_selected_rows() -> list[int]:
-    table_state = st.session_state.get("inventory_table", {})
+    table_state = st.session_state.get(get_table_key(), {})
     selection = table_state.get("selection", {})
     rows = selection.get("rows", [])
     return rows if isinstance(rows, list) else []
@@ -563,7 +563,7 @@ else:
         
         with right:
             selected_row = results_df.iloc[selected_rows[0]]
-            c1, c2 = st.columns(2)
+            c1, c2 = st.columns([3, 1], vertical_alignment="bottom")
             with c1:
                 st.subheader(selected_row["card_name"])
             with c2:
