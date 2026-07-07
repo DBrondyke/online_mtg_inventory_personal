@@ -3,6 +3,7 @@ import tempfile
 import hmac
 from typing import Optional
 from personal_inventory_import import main as run_personal_import
+from refresh_personal_prices import main as run_price_refresh
 
 import pandas as pd
 import psycopg
@@ -355,6 +356,20 @@ def show_admin_panel() -> None:
                 st.success("Import completed.")
             except Exception as e:
                 st.error(f"Import failed: {e}")
+    
+    st.subheader("Price Refresh")
+    
+    inventory_only = st.checkbox(
+        "Only refresh prices for cards currently in stock",
+        value=True,
+    )
+    
+    if st.button("Refresh prices", width="stretch"):
+        try:
+            run_price_refresh(limit_to_inventory_only=inventory_only)
+            st.success("Price refresh completed.")
+        except Exception as e:
+            st.error(f"Price refresh failed: {e}")
 
 
 header_left, header_right = st.columns([1, 6])
