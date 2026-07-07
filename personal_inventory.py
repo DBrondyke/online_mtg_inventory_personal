@@ -162,7 +162,7 @@ def build_type_clause(types: List[str], mode: str) -> tuple[str, list]:
 def render_inventory_table(df: pd.DataFrame):
     return st.dataframe(
         df,
-        key=get_table_key(),
+        key="inventory_table",
         width="stretch",
         hide_index=True,
         on_select="rerun",
@@ -192,21 +192,15 @@ def render_inventory_table(df: pd.DataFrame):
     )
 
 def get_selected_rows() -> list[int]:
-    table_state = st.session_state.get(get_table_key(), {})
+    table_state = st.session_state.get("inventory_table", {})
     selection = table_state.get("selection", {})
     rows = selection.get("rows", [])
     return rows if isinstance(rows, list) else []
 
-def get_table_key() -> str:
-    if "inventory_table_version" not in st.session_state:
-        st.session_state["inventory_table_version"] = 0
-    return f"inventory_table_{st.session_state['inventory_table_version']}"
-
-def clear_table_selection():
-    selected_rows = get_selected_rows()
-    selected_rows = []
-    #st.session_state["inventory_table_version"] += 1
-    #st.rerun()
+#def get_table_key() -> str:
+#    if "inventory_table_version" not in st.session_state:
+#        st.session_state["inventory_table_version"] = 0
+#    return f"inventory_table_{st.session_state['inventory_table_version']}"
 
 def clean_text(value, fallback="-"):
     if value is None:
@@ -565,11 +559,7 @@ with right:
         else:
             selected_row = results_df.iloc[selected_rows[0]]
             
-            c1, c2 = st.columns([3, 1], vertical_alignment="bottom")
-            with c1:
-                st.subheader(selected_row["card_name"])
-            with c2:
-                st.button("Clear selection", on_click=clear_table_selection,width="content")
+            st.subheader(selected_row["card_name"])
             
             st.write(f"**Set:** {selected_row['set_name']} ({selected_row['set_code']})")
             st.write(f"**Collector #:** {selected_row['collector_number']}")
