@@ -159,6 +159,39 @@ def build_type_clause(types: List[str], mode: str) -> tuple[str, list]:
         params.append(f"%{t}%")
     return " AND (" + " OR ".join(clauses) + ")", params
 
+# inventory table helper
+def render_inventory_table(df: pd.DataFrame, key_str: str):
+    return st.dataframe(
+        df,
+        key=key_str,
+        width="stretch",
+        hide_index=True,
+        on_select="rerun",
+        selection_mode="single-row",
+        column_order=[
+            "card_name",
+            "set_name",
+            "mana_cost",
+            "color_identity",
+            "type_line",
+            "price",
+            "stock_count",
+            "set_code",
+            "collector_number",
+        ],
+        column_config={
+            "card_name": st.column_config.TextColumn("Card Name", width="medium"),
+            "set_name": st.column_config.TextColumn("Set", width="medium"),
+            "mana_cost": st.column_config.TextColumn("Cost", width="small"),
+            "color_identity": st.column_config.TextColumn("Color", width="small"),
+            "type_line": st.column_config.TextColumn("Type", width="medium"),
+            "price": st.column_config.NumberColumn("Price", format="$%.2f"),
+            "stock_count": st.column_config.TextColumn("Stock", width="small"),
+            "set_code": st.column_config.TextColumn("Set Code", width="small"),
+            "collector_number": st.column_config.TextColumn("Collector #", width="small"),
+        },
+    )
+
 
 def search_inventory(
     *,
@@ -486,35 +519,7 @@ else:
     display_df["stock_count"] = display_df["total_stock"].fillna(0).astype(int)
     
     # First render the table so we can inspect selection
-    event = st.dataframe(
-        display_df,
-        width="stretch",
-        hide_index=True,
-        on_select="rerun",
-        selection_mode="single-row",
-        column_order=[
-            "card_name",
-            "set_name",
-            "mana_cost",
-            "color_identity",
-            "type_line",
-            "price",
-            "stock_count",
-            "set_code",
-            "collector_number",
-        ],
-        column_config={
-            "card_name": st.column_config.TextColumn("Card Name", width="medium"),
-            "set_name": st.column_config.TextColumn("Set", width="medium"),
-            "mana_cost": st.column_config.TextColumn("Cost", width="small"),
-            "color_identity": st.column_config.TextColumn("Color", width="small"),
-            "type_line": st.column_config.TextColumn("Type", width="medium"),
-            "price": st.column_config.NumberColumn("Price", format="$%.2f"),
-            "stock_count": st.column_config.TextColumn("Stock", width="small"),
-            "set_code": st.column_config.TextColumn("Set Code", width="small"),
-            "collector_number": st.column_config.TextColumn("Collector #", width="small"),
-        },
-    )
+    event = render_inventory_table(display_df, "inventory_table_full")
     
     selected_rows = event["selection"]["rows"]
     
@@ -523,39 +528,18 @@ else:
         st.write("Select a card to view details.")
     
     st.write(f"Matches: {len(results_df)}")
+    
+    # If no selection, stop here so the table uses the full width
+    if not selected_rows:
+        st.stop()
+    
+    # If a row is selected, re-render to two columns
+    selected_row = results_df.iloc[selected_rows[0]]
 
     left, right = st.columns([3, 2])
 
     with left:
-        st.dataframe(
-            display_df,
-            width="stretch",
-            hide_index=True,
-            on_select="rerun",
-            selection_mode="single-row",
-            column_order=[
-                "card_name",
-                "set_name",
-                "mana_cost",
-                "color_identity",
-                "type_line",
-                "price",
-                "stock_count",
-                "set_code",
-                "collector_number",
-            ],
-            column_config={
-                "card_name": st.column_config.TextColumn("Card Name", width="medium"),
-                "set_name": st.column_config.TextColumn("Set", width="medium"),
-                "mana_cost": st.column_config.TextColumn("Cost", width="small"),
-                "color_identity": st.column_config.TextColumn("Color", width="small"),
-                "type_line": st.column_config.TextColumn("Type", width="medium"),
-                "price": st.column_config.NumberColumn("Price", format="$%.2f"),
-                "stock_count": st.column_config.TextColumn("Stock", width="small"),
-                "set_code": st.column_config.TextColumn("Set Code", width="small"),
-                "collector_number": st.column_config.TextColumn("Collector #", width="small"),
-            },
-        )
+        render_inventory_table(display_df, "inventory_table_split")
     
     with right:
         st.subheader(selected_row["card_name"])
