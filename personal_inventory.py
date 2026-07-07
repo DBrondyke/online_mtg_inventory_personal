@@ -159,14 +159,15 @@ def build_type_clause(types: List[str], mode: str) -> tuple[str, list]:
         params.append(f"%{t}%")
     return " AND (" + " OR ".join(clauses) + ")", params
 
+
 def search_inventory(
     *,
     name_query: str,
     set_query: str,
     oracle_query: str,
-    selected_types: List[str],
+    selected_types: list[str],
     type_mode: str,
-    selected_subtypes: List[str],
+    selected_subtypes: list[str],
     subtype_text: str,
     subtype_mode: str,
     min_stock: int,
@@ -176,75 +177,56 @@ def search_inventory(
     in_stock_only: bool,
 ) -> pd.DataFrame:
     sql = """
-    SELECT
-        cp.collector_number,
-        cp.card_name,
-        cp.set_code,
-        cp.set_name,
-        cp.standard_legal,
-        cp.commander_legal,
-        cp.color_identity,
-        cp.mana_cost,
-        cp.mana_value,            
-        cp.type_line,
-        cp.oracle_text,
-        i.stock,
-        i.finish,
-        ROUND(
-            CASE
-                WHEN i.override_value IS NOT NULL THEN i.override_value
-                WHEN i.finish = 'nonfoil' THEN COALESCE(cp.usd_price, cp.usd_foil_price, cp.usd_etched_price, cp.rarity_floor_value)
-                WHEN i.finish = 'foil' THEN COALESCE(cp.usd_foil_price, cp.usd_price, cp.usd_etched_price, cp.rarity_floor_value)
-                WHEN i.finish = 'etched' THEN COALESCE(cp.usd_etched_price, cp.usd_foil_price, cp.usd_price, cp.rarity_floor_value)
-                ELSE COALESCE(cp.usd_price, cp.usd_foil_price, cp.usd_etched_price, cp.rarity_floor_value)
-            END,
-            2
-        ) AS unit_value,
-        ROUND(
-            i.stock * (
-                CASE
-                    WHEN i.override_value IS NOT NULL THEN i.override_value
-                    WHEN i.finish = 'nonfoil' THEN COALESCE(cp.usd_price, cp.usd_foil_price, cp.usd_etched_price, cp.rarity_floor_value)
-                    WHEN i.finish = 'foil' THEN COALESCE(cp.usd_foil_price, cp.usd_price, cp.usd_etched_price, cp.rarity_floor_value)
-                    WHEN i.finish = 'etched' THEN COALESCE(cp.usd_etched_price, cp.usd_foil_price, cp.usd_price, cp.rarity_floor_value)
-                    ELSE COALESCE(cp.usd_price, cp.usd_foil_price, cp.usd_etched_price, cp.rarity_floor_value)
-                END
-            ),
-            2
-        ) AS total_value,
-        cp.scryfall_id
-    FROM inventory i
-    JOIN card_printings cp
-      ON cp.scryfall_id = i.scryfall_id
-    WHERE 1=1
+    WITH grouped_inventory AS (
+        SELECT
+            MIN(cp.card_name) AS card_name,
+            MIN(cp.set_name) AS set_name,
+            cp.set_code,
+            cp.collector_number,
+            MIN(cp.standard_legal) AS standard_legal,
+            MIN(cp.commander_legal) AS commander_legal,
+            MIN(cp.color_identity) AS color_identity,
+            MIN(cp.mana_cost) AS mana_cost,
+            MIN(cp.mana_value) AS mana_value,
+            MIN(cp.type_line) AS type_line,
+            MIN(cp.oracle_text) AS oracle_text,
+            SUM(i.stock) AS total_stock,
+            ROUND(
+                MIN(
+                    CASE
+                        WHEN i.override_value IS NOT NULL THEN i.override_value
+                        WHEN i.finish = 'nonfoil' THEN COALESCE(cp.usd_price, cp.usd_foil_price, cp.usd_etched_price, cp.rarity_floor_value)
+                        WHEN i.finish = 'foil' THEN COALESCE(cp.usd_foil_price, cp.usd_price, cp.usd_etched_price, cp.rarity_floor_value)
+                        WHEN i.finish = 'etched' THEN COALESCE(cp.usd_etched_price, cp.usd_foil_price, cp.usd_price, cp.rarity_floor_value)
+                        ELSE COALESCE(cp.usd_price, cp.usd_foil_price, cp.usd_etched_price, cp.rarity_floor_value)
+                    END
+                ),
+                2
+            ) AS price
+        FROM inventory i
+        JOIN card_printings cp
+          ON cp.scryfall_id = i.scryfall_id
+        WHERE 1=1
     """
     params: list = []
 
     if in_stock_only:
         sql += " AND i.stock > 0"
-    
+
     if min_stock > 0:
         sql += " AND i.stock >= %s"
         params.append(min_stock)
-    
+
     if name_query.strip():
         sql += " AND cp.card_name ILIKE %s"
         params.append(f"%{name_query.strip()}%")
-    
+
     if oracle_query.strip():
         words = [w.strip() for w in oracle_query.split() if w.strip()]
         for word in words:
-            sql += " AND cp.oracle_text LIKE %s"
+            sql += " AND cp.oracle_text ILIKE %s"
             params.append(f"%{word}%")
-    
-    color_clause, color_params = build_color_clause(color_filter, color_mode)
-    sql += color_clause
-    params.extend(color_params)
 
-    type_clause, type_params = build_type_clause(selected_types, type_mode)
-    sql += type_clause
-    params.extend(type_params)
-    
     if set_query.strip():
         sql += " AND (cp.set_name ILIKE %s OR LOWER(cp.set_code) = %s)"
         params.append(f"%{set_query.strip()}%")
@@ -255,6 +237,34 @@ def search_inventory(
     elif color_filter != "All":
         sql += " AND cp.color_identity ILIKE %s"
         params.append(f"%{color_filter}%")
+
+    if selected_types:
+        if type_mode == "Must include all selected types":
+            for t in selected_types:
+                sql += " AND cp.type_line ILIKE %s"
+                params.append(f"%{t}%")
+        else:
+            type_clauses = []
+            for t in selected_types:
+                type_clauses.append("cp.type_line ILIKE %s")
+                params.append(f"%{t}%")
+            sql += " AND (" + " OR ".join(type_clauses) + ")"
+
+    subtype_terms = list(selected_subtypes)
+    if subtype_text.strip():
+        subtype_terms.extend([s.strip() for s in subtype_text.split(",") if s.strip()])
+
+    if subtype_terms:
+        if subtype_mode == "Must include all selected subtypes":
+            for s in subtype_terms:
+                sql += " AND cp.type_line ILIKE %s"
+                params.append(f"%{s}%")
+        else:
+            subtype_clauses = []
+            for s in subtype_terms:
+                subtype_clauses.append("cp.type_line ILIKE %s")
+                params.append(f"%{s}%")
+            sql += " AND (" + " OR ".join(subtype_clauses) + ")"
 
     if max_price is not None:
         sql += """
@@ -271,6 +281,22 @@ def search_inventory(
         params.append(max_price)
 
     sql += """
+        GROUP BY
+            cp.set_code,
+            cp.collector_number
+    )
+    SELECT
+        card_name,
+        set_name,
+        set_code,
+        collector_number,
+        mana_cost,
+        color_identity,
+        type_line,
+        oracle_text,
+        total_stock,
+        price
+    FROM grouped_inventory
     ORDER BY
         card_name,
         set_name,
@@ -301,14 +327,6 @@ def search_inventory(
         return pd.DataFrame(columns=columns)
 
     return pd.DataFrame([dict(r) for r in rows], columns=columns)
-
-
-def availability_text(total_stock) -> str:
-    try:
-        return "In Stock" if int(total_stock) > 0 else "Out of Stock"
-    except Exception:
-        return "Out of Stock"
-
 
 def show_admin_panel() -> None:
     st.subheader("Admin Tools")
@@ -468,7 +486,7 @@ with left:
             ]
         ].copy()
 
-        display_df["availability"] = display_df["total_stock"].apply(availability_text)
+        display_df["stock_count"] = display_df["total_stock"].fillna(0).astype(int)
 
         event = st.dataframe(
             display_df,
@@ -483,7 +501,7 @@ with left:
                 "color_identity",
                 "type_line",
                 "price",
-                "availability",
+                "stock_count",
                 "set_code",
                 "collector_number",
             ],
@@ -494,7 +512,7 @@ with left:
                 "color_identity": st.column_config.TextColumn("Color", width="small"),
                 "type_line": st.column_config.TextColumn("Type", width="medium"),
                 "price": st.column_config.NumberColumn("Price", format="$%.2f"),
-                "availability": st.column_config.TextColumn("Availability", width="small"),
+                "stock_count": st.column_config.TextColumn("Stock", width="small"),
                 "set_code": st.column_config.TextColumn("Set Code", width="small"),
                 "collector_number": st.column_config.TextColumn("Collector #", width="small"),
             },
@@ -517,7 +535,7 @@ with right:
             st.write(f"**Cost:** {selected_row['mana_cost'] or '—'}")
             st.write(f"**Color:** {selected_row['color_identity'] or 'Colorless'}")
             st.write(f"**Type:** {selected_row['type_line'] or '—'}")
-            st.write(f"**Availability:** {availability_text(selected_row['total_stock'])}")
+            st.write(f"**Stock:** {int(selected_row['total_stock'])}")
             st.write(f"**Price:** ${float(selected_row['price']):.2f}" if selected_row["price"] is not None else "**Price:** —")
 
             st.text_area(
