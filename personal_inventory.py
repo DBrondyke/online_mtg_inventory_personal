@@ -464,31 +464,70 @@ results_df = search_inventory(
     min_stock=min_stock,
 )
 
-left, right = st.columns([3, 2])
-
-with left:
+if results_df.empty:
+    st.write("Select a card to view details.")
+    st.write(f"Matches: {len(results_df)}")
+    st.info("No cards match the current filters.")
+else:
+    display_df = results_df[
+        [
+            "card_name",
+            "set_name",
+            "mana_cost",
+            "color_identity",
+            "type_line",
+            "price",
+            "total_stock",
+            "set_code",
+            "collector_number",
+        ]
+    ].copy()
+    
+    display_df["stock_count"] = display_df["total_stock"].fillna(0).astype(int)
+    
+    # First render the table so we can inspect selection
+    event = st.dataframe(
+        display_df,
+        width="stretch",
+        hide_index=True,
+        on_select="rerun",
+        selection_mode="single-row",
+        column_order=[
+            "card_name",
+            "set_name",
+            "mana_cost",
+            "color_identity",
+            "type_line",
+            "price",
+            "stock_count",
+            "set_code",
+            "collector_number",
+        ],
+        column_config={
+            "card_name": st.column_config.TextColumn("Card Name", width="medium"),
+            "set_name": st.column_config.TextColumn("Set", width="medium"),
+            "mana_cost": st.column_config.TextColumn("Cost", width="small"),
+            "color_identity": st.column_config.TextColumn("Color", width="small"),
+            "type_line": st.column_config.TextColumn("Type", width="medium"),
+            "price": st.column_config.NumberColumn("Price", format="$%.2f"),
+            "stock_count": st.column_config.TextColumn("Stock", width="small"),
+            "set_code": st.column_config.TextColumn("Set Code", width="small"),
+            "collector_number": st.column_config.TextColumn("Collector #", width="small"),
+        },
+    )
+    
+    selected_rows = event["selection"]["rows"]
+    
+    #Put above match count
+    if not selected_rows:
+        st.write("Select a card to view details.")
+    
     st.write(f"Matches: {len(results_df)}")
 
-    if results_df.empty:
-        st.info("No cards match the current filters.")
-    else:
-        display_df = results_df[
-            [
-                "card_name",
-                "set_name",
-                "mana_cost",
-                "color_identity",
-                "type_line",
-                "price",
-                "total_stock",
-                "set_code",
-                "collector_number",
-            ]
-        ].copy()
+    left, right = st.columns([3, 2])
 
-        display_df["stock_count"] = display_df["total_stock"].fillna(0).astype(int)
-
-        event = st.dataframe(
+    with left:
+        st.dataframe(
             display_df,
             width="stretch",
             hide_index=True,
@@ -517,33 +556,27 @@ with left:
                 "collector_number": st.column_config.TextColumn("Collector #", width="small"),
             },
         )
+    
+    with right:
+        st.subheader(selected_row["card_name"])
+        st.write(f"**Set:** {selected_row['set_name']} ({selected_row['set_code']})")
+        st.write(f"**Collector #:** {selected_row['collector_number']}")
+        st.write(f"**Cost:** {selected_row['mana_cost'] or '—'}")
+        st.write(f"**Color:** {selected_row['color_identity'] or 'Colorless'}")
+        st.write(f"**Type:** {selected_row['type_line'] or '—'}")
+        st.write(f"**Stock:** {int(selected_row['total_stock'])}")
+        st.write(
+            f"**Price:** ${float(selected_row['price']):.2f}"
+            if selected_row["price"] is not None 
+            else "**Price:** —"
+        )
 
-with right:
-    if results_df.empty:
-        st.info("Select a card to view details.")
-    else:
-        selected_rows = event["selection"]["rows"] if "event" in locals() else []
-
-        if not selected_rows:
-            st.info("Select a card to view details.")
-        else:
-            selected_row = results_df.iloc[selected_rows[0]]
-
-            st.subheader(selected_row["card_name"])
-            st.write(f"**Set:** {selected_row['set_name']} ({selected_row['set_code']})")
-            st.write(f"**Collector #:** {selected_row['collector_number']}")
-            st.write(f"**Cost:** {selected_row['mana_cost'] or '—'}")
-            st.write(f"**Color:** {selected_row['color_identity'] or 'Colorless'}")
-            st.write(f"**Type:** {selected_row['type_line'] or '—'}")
-            st.write(f"**Stock:** {int(selected_row['total_stock'])}")
-            st.write(f"**Price:** ${float(selected_row['price']):.2f}" if selected_row["price"] is not None else "**Price:** —")
-
-            st.text_area(
-                "Oracle Text",
-                value=selected_row["oracle_text"] or "",
-                height=220,
-                disabled=True,
-            )
+        st.text_area(
+            "Oracle Text",
+            value=selected_row["oracle_text"] or "",
+            height=220,
+            disabled=True,
+        )
 
 if st.session_state.get("admin_authenticated", False):
     st.divider()
