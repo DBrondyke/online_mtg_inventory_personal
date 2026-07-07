@@ -160,10 +160,10 @@ def build_type_clause(types: List[str], mode: str) -> tuple[str, list]:
     return " AND (" + " OR ".join(clauses) + ")", params
 
 # inventory table helper
-def render_inventory_table(df: pd.DataFrame, key_str: str):
+def render_inventory_table(df: pd.DataFrame):
     return st.dataframe(
         df,
-        key=key_str,
+        key="inventory_table",
         width="stretch",
         hide_index=True,
         on_select="rerun",
@@ -192,6 +192,11 @@ def render_inventory_table(df: pd.DataFrame, key_str: str):
         },
     )
 
+def get_selected_rows() -> list[int]:
+    table_state = st.session_state.get("inventory_table", {})
+    selection = table_state.get("selection", {})
+    rows = selection.get("rows", [])
+    return rows if isinstance(rows, list) else []
 
 def search_inventory(
     *,
@@ -518,49 +523,45 @@ else:
     
     display_df["stock_count"] = display_df["total_stock"].fillna(0).astype(int)
     
-    # First render the table so we can inspect selection
-    event = render_inventory_table(display_df, "inventory_table_full")
+    selected_rows = get_selected_rows()
     
-    selected_rows = event["selection"]["rows"]
+    # Guard against stale selection after filters change
+    if selected_rows and selected_rows[0] >= len(results_df):
+        selected_rows = []
     
     #Put above match count
     if not selected_rows:
         st.write("Select a card to view details.")
-    
-    st.write(f"Matches: {len(results_df)}")
-    
-    # If no selection, stop here so the table uses the full width
-    if not selected_rows:
-        st.stop()
-    
-    # If a row is selected, re-render to two columns
-    selected_row = results_df.iloc[selected_rows[0]]
+        st.write(f"Matches: {len(results_df)}")
+        render_inventory_table(display_df)
+    else:
+        st.write(f"Matches: {len(results_df)}")
+        
+        left, right = st.columns([3, 2])
 
-    left, right = st.columns([3, 2])
+        with left:
+            render_inventory_table(display_df)
+        
+        with right:
+            st.subheader(selected_row["card_name"])
+            st.write(f"**Set:** {selected_row['set_name']} ({selected_row['set_code']})")
+            st.write(f"**Collector #:** {selected_row['collector_number']}")
+            st.write(f"**Cost:** {selected_row['mana_cost'] or '—'}")
+            st.write(f"**Color:** {selected_row['color_identity'] or 'Colorless'}")
+            st.write(f"**Type:** {selected_row['type_line'] or '—'}")
+            st.write(f"**Stock:** {int(selected_row['total_stock'])}")
+            st.write(
+                f"**Price:** ${float(selected_row['price']):.2f}"
+                if selected_row["price"] is not None 
+                else "**Price:** —"
+            )
 
-    with left:
-        render_inventory_table(display_df, "inventory_table_split")
-    
-    with right:
-        st.subheader(selected_row["card_name"])
-        st.write(f"**Set:** {selected_row['set_name']} ({selected_row['set_code']})")
-        st.write(f"**Collector #:** {selected_row['collector_number']}")
-        st.write(f"**Cost:** {selected_row['mana_cost'] or '—'}")
-        st.write(f"**Color:** {selected_row['color_identity'] or 'Colorless'}")
-        st.write(f"**Type:** {selected_row['type_line'] or '—'}")
-        st.write(f"**Stock:** {int(selected_row['total_stock'])}")
-        st.write(
-            f"**Price:** ${float(selected_row['price']):.2f}"
-            if selected_row["price"] is not None 
-            else "**Price:** —"
-        )
-
-        st.text_area(
-            "Oracle Text",
-            value=selected_row["oracle_text"] or "",
-            height=220,
-            disabled=True,
-        )
+            st.text_area(
+                "Oracle Text",
+                value=selected_row["oracle_text"] or "",
+                height=220,
+                disabled=True,
+            )
 
 if st.session_state.get("admin_authenticated", False):
     st.divider()
