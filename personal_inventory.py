@@ -542,7 +542,7 @@ with left:
         
         display_df["stock_count"] = display_df["total_stock"].fillna(0).astype(int)
         display_df["mana_cost_display"] = display_df["mana_cost"].apply(lambda v: clean_text(v, "-"))
-        display_df["color_identity_display"] = display_df["color_identity"].apply(lambda v: clean_text(v, "-"))
+        display_df["color_identity_display"] = display_df["color_identity"].apply(lambda v: clean_text(v, "Colorless"))
         display_df["oracle_text_display"] = display_df["oracle_text"].apply(lambda v: clean_text(v, "-"))
         
         event = render_inventory_table(display_df)
