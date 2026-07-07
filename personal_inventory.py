@@ -197,10 +197,6 @@ def get_selected_rows() -> list[int]:
     rows = selection.get("rows", [])
     return rows if isinstance(rows, list) else []
 
-#def get_table_key() -> str:
-#    if "inventory_table_version" not in st.session_state:
-#        st.session_state["inventory_table_version"] = 0
-#    return f"inventory_table_{st.session_state['inventory_table_version']}"
 
 def clean_text(value, fallback="-"):
     if value is None:
