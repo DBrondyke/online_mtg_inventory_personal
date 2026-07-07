@@ -445,6 +445,84 @@ def show_admin_panel() -> None:
             st.error(f"Price refresh failed: {e}")
 
 
+@st.fragment
+def render_results_fragment(results_df: pd.DataFrame):
+    if results_df.empty:
+        st.write("Select a card to view details.")
+        st.write(f"Matches: {len(results_df)}")
+        st.info("No cards match the current filters.")
+        return
+    else:
+        display_df = results_df[
+            [
+                "card_name",
+                "set_name",
+                "mana_cost",
+                "color_identity",
+                "type_line",
+                "oracle_text",
+                "price",
+                "total_stock",
+                "set_code",
+                "collector_number",
+            ]
+        ].copy()
+        
+        display_df["stock_count"] = display_df["total_stock"].fillna(0).astype(int)
+        display_df["mana_cost_display"] = display_df["mana_cost"].apply(lambda v: clean_text(v, "-"))
+        display_df["color_identity_display"] = display_df["color_identity"].apply(lambda v: clean_text(v, "-"))
+        display_df["oracle_text_display"] = display_df["oracle_text"].apply(lambda v: clean_text(v, "-"))
+        
+        selected_rows = get_selected_rows()
+        
+        # Guard against stale selection after filters change
+        if selected_rows and selected_rows[0] >= len(results_df):
+            selected_rows = []
+        
+        #Put above match count
+        if not selected_rows:
+            st.write("Select a card to view details.")
+            st.write(f"Matches: {len(results_df)}")
+            render_inventory_table(display_df)
+            return
+        
+        st.write(f"Matches: {len(results_df)}")
+        
+        left, right = st.columns([3, 2])
+
+        with left:
+            render_inventory_table(display_df)
+        
+        with right:
+            selected_row = results_df.iloc[selected_rows[0]]
+            c1, c2 = st.columns([3, 1], vertical_alignment="bottom")
+            with c1:
+                st.subheader(selected_row["card_name"])
+            with c2:
+                st.button("Clear selection", on_click=clear_table_selection,width="content")
+            
+            st.write(f"**Set:** {selected_row['set_name']} ({selected_row['set_code']})")
+            st.write(f"**Collector #:** {selected_row['collector_number']}")
+            st.write(f"**Cost:** {clean_text(selected_row['mana_cost'],'-')}")
+            st.write(f"**Color:** {clean_text(selected_row['color_identity'],'Colorless')}")
+            st.write(f"**Type:** {selected_row['type_line'] or '-'}")
+            st.write(f"**Stock:** {int(selected_row['total_stock'])}")
+            st.write(
+                f"**Price:** ${float(selected_row['price']):.2f}"
+                if selected_row["price"] is not None 
+                else "**Price:** -"
+            )
+
+            st.text_area(
+                "Oracle Text",
+                value=clean_text(selected_row["oracle_text"],"-"),
+                height=220,
+                disabled=True,
+            )
+
+        
+
+
 header_left, header_right = st.columns([1, 6])
 
 with header_left:
@@ -519,76 +597,7 @@ results_df = search_inventory(
     min_stock=min_stock,
 )
 
-if results_df.empty:
-    st.write("Select a card to view details.")
-    st.write(f"Matches: {len(results_df)}")
-    st.info("No cards match the current filters.")
-else:
-    display_df = results_df[
-        [
-            "card_name",
-            "set_name",
-            "mana_cost",
-            "color_identity",
-            "type_line",
-            "oracle_text",
-            "price",
-            "total_stock",
-            "set_code",
-            "collector_number",
-        ]
-    ].copy()
-    
-    display_df["stock_count"] = display_df["total_stock"].fillna(0).astype(int)
-    display_df["mana_cost_display"] = display_df["mana_cost"].apply(lambda v: clean_text(v, "-"))
-    display_df["color_identity_display"] = display_df["color_identity"].apply(lambda v: clean_text(v, "-"))
-    display_df["oracle_text_display"] = display_df["oracle_text"].apply(lambda v: clean_text(v, "-"))
-    
-    selected_rows = get_selected_rows()
-    
-    # Guard against stale selection after filters change
-    if selected_rows and selected_rows[0] >= len(results_df):
-        selected_rows = []
-    
-    #Put above match count
-    if not selected_rows:
-        st.write("Select a card to view details.")
-        st.write(f"Matches: {len(results_df)}")
-        render_inventory_table(display_df)
-    else:
-        st.write(f"Matches: {len(results_df)}")
-        
-        left, right = st.columns([3, 2])
-
-        with left:
-            render_inventory_table(display_df)
-        
-        with right:
-            selected_row = results_df.iloc[selected_rows[0]]
-            c1, c2 = st.columns([3, 1], vertical_alignment="bottom")
-            with c1:
-                st.subheader(selected_row["card_name"])
-            with c2:
-                st.button("Clear selection", on_click=clear_table_selection,width="content")
-            
-            st.write(f"**Set:** {selected_row['set_name']} ({selected_row['set_code']})")
-            st.write(f"**Collector #:** {selected_row['collector_number']}")
-            st.write(f"**Cost:** {clean_text(selected_row['mana_cost'],'-')}")
-            st.write(f"**Color:** {clean_text(selected_row['color_identity'],'Colorless')}")
-            st.write(f"**Type:** {selected_row['type_line'] or '-'}")
-            st.write(f"**Stock:** {int(selected_row['total_stock'])}")
-            st.write(
-                f"**Price:** ${float(selected_row['price']):.2f}"
-                if selected_row["price"] is not None 
-                else "**Price:** -"
-            )
-
-            st.text_area(
-                "Oracle Text",
-                value=clean_text(selected_row["oracle_text"],"-"),
-                height=220,
-                disabled=True,
-            )
+render_results_fragment(results_df)
 
 if st.session_state.get("admin_authenticated", False):
     st.divider()
