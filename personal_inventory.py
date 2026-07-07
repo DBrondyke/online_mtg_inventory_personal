@@ -203,7 +203,9 @@ def get_table_key() -> str:
     return f"inventory_table_{st.session_state['inventory_table_version']}"
 
 def clear_table_selection():
-    st.session_state["inventory_table_version"] += 1
+    selected_rows = get_selected_rows()
+    selected_rows = []
+    #st.session_state["inventory_table_version"] += 1
     #st.rerun()
 
 def clean_text(value, fallback="-"):
