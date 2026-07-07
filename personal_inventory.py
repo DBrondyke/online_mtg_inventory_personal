@@ -531,6 +531,7 @@ else:
             "mana_cost",
             "color_identity",
             "type_line",
+            "oracle_text",
             "price",
             "total_stock",
             "set_code",
