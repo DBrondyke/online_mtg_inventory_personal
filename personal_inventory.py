@@ -205,7 +205,7 @@ def get_table_key() -> str:
 
 def clear_table_selection():
     st.session_state["inventory_table_version"] += 1
-    st.rerun()
+    #st.rerun()
 
 def clean_text(value, fallback="-"):
     if value is None:
