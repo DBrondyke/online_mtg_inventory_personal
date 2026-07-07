@@ -2,7 +2,6 @@ import os
 import tempfile
 import hmac
 from typing import Optional
-from personal_inventory_import import main as run_personal_import
 from refresh_personal_prices import main as run_price_refresh
 
 import pandas as pd
@@ -425,7 +424,7 @@ def show_admin_panel() -> None:
                 temp_path = tmp.name
 
             try:
-                run_personal_import(temp_path, import_type=import_type_value, manual_mode=manual_mode_value,)
+                run_personal_import(temp_path, import_type=import_type, manual_mode=manual_mode,)
                 st.success("Import completed.")
             except Exception as e:
                 st.error(f"Import failed: {e}")
