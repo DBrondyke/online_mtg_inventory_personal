@@ -384,13 +384,28 @@ def show_admin_panel() -> None:
     )
     
     manual_mode = "set"
+    manabox_mode = "set_listed"
+    
     if import_type_label == "Manual stock CSV":
         manual_mode_label = st.selectbox(
             "Manual mode",
             ["Set", "Add", "Remove"],
         )
         manual_mode = manual_mode_label.lower()
-    
+    else:
+        manabox_mode_label = st.selectbox(
+            "ManaBox mode",
+            [
+                "Add contents of CSV",
+                "Full inventory sync",
+            ],
+        )
+        
+        if manabox_mode_label == "Add contents of CSV":
+            manabox_mode = "add"
+        else:
+            manabox_mode = "full_sync"
+       
     import_type = "manual" if import_type_label == "Manual stock CSV" else "manabox"
 
     uploaded_file = st.file_uploader(
@@ -416,7 +431,7 @@ def show_admin_panel() -> None:
                 temp_path = tmp.name
 
             try:
-                run_personal_import(temp_path, import_type=import_type, manual_mode=manual_mode,)
+                run_personal_import(temp_path, import_type=import_type, manual_mode=manual_mode, manabox_mode=manabox_mode,)
                 st.success("Import completed.")
             except Exception as e:
                 st.error(f"Import failed: {e}")

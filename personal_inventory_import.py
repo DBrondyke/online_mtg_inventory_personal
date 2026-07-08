@@ -189,6 +189,46 @@ def fetch_card_by_id_from_scryfall(scryfall_id: str) -> dict:
     resp.raise_for_status()
     return resp.json()
 
+def create_temp_seen_table(conn) -> None:
+    conn.execute(
+        """
+        CREATE TEMP TABLE temp_personal_seen (
+            scryfall_id TEXT NOT NULL,
+            finish TEXT NOT NULL,
+            PRIMARY KEY (scryfall_id, finish)
+        )
+        """
+    )
+
+def mark_seen(conn, *, scryfall_id: str, finish: str) -> None:
+    conn.execute(
+        """
+        INSERT INTO temp_personal_seen (scryfall_id, finish)
+        VALUES (%s, %s)
+        ON CONFLICT DO NOTHING
+        """,
+        (scryfall_id, finish),
+    )
+
+def zero_missing_inventory_rows(conn) -> int:
+    cur = conn.execute(
+        """
+        UPDATE inventory
+        SET
+            stock = 0,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE stock <> 0
+        AND NOT EXISTS (
+            SELECT 1
+            FROM temp_personal_seen s
+            WHERE s.scryfall_id = inventory.scryfall_id
+                AND s.finish = inventory.finish
+        )
+        """
+    )
+    return cur.rowcount
+
+
 
 def upsert_card_printing(conn, card: dict) -> None:
     prices = card.get("prices", {}) or {}
@@ -409,10 +449,18 @@ def process_manual_csv(conn, csv_path: Path, manual_mode: str) -> tuple[int, int
     return processed, changed
 
 
-def process_manabox_csv(conn, csv_path: Path) -> tuple[int, int]:
+def process_manabox_csv(conn, csv_path: Path, manabox_mode: str) -> tuple[int, int, int]:
     processed = 0
     changed = 0
-
+    zeroed = 0
+    
+    manabox_mode = (manabox_mode or "set_listed").strip().lower()
+    if manabox_mode not in {"add", "full_sync", "set_listed"}:
+        raise ValueError(f"Unsupported ManaBox mode: {manabox_mode}")
+    
+    if manabox_mode == "full_sync":
+        create_temp_seen_table(conn)
+    
     with csv_path.open(newline="", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         headers = {normalize_key(name) for name in (reader.fieldnames or [])}
@@ -444,8 +492,15 @@ def process_manabox_csv(conn, csv_path: Path) -> tuple[int, int]:
 
                 finish = parse_finish(row_value(row, "foil"))
                 quantity = parse_quantity(row_value(row, "quantity", "qty"))
-
-                result = set_inventory_stock(conn, scryfall_id, finish, quantity)
+                
+                if manabox_mode == "add":
+                    result = change_inventory_stock(conn, scryfall_id, finish, quantity, "add")
+                else:
+                    result = set_inventory_stock(conn, scryfall_id, finish, quantity)
+                
+                if manabox_mode == "full_sync":
+                    mark_seen(conn, scryfall_id=scryfall_id, finish=finish)
+                
                 conn.execute(f"RELEASE SAVEPOINT {savepoint_name}")
 
                 if result != "unchanged":
@@ -456,10 +511,10 @@ def process_manabox_csv(conn, csv_path: Path) -> tuple[int, int]:
                 conn.execute(f"RELEASE SAVEPOINT {savepoint_name}")
                 print(f"ManaBox line {line_num}: skipped, error: {e}")
 
-    return processed, changed
+    return processed, changed, zeroed
 
 
-def main(csv_file: str, import_type: str = "auto", manual_mode: str = "set") -> None:
+def main(csv_file: str, import_type: str = "auto", manual_mode: str = "set", manabox_mode: str = "set_listed",) -> None:
     csv_path = Path(csv_file)
     if not csv_path.exists():
         raise FileNotFoundError(f"File not found: {csv_file}")
@@ -472,11 +527,14 @@ def main(csv_file: str, import_type: str = "auto", manual_mode: str = "set") -> 
 
             if import_kind == "manual":
                 processed, changed = process_manual_csv(conn, csv_path, manual_mode)
+                print(f"Done. Type: {import_kind}. Processed: {processed}. Changed rows: {changed}.")
             else:
-                processed, changed = process_manabox_csv(conn, csv_path)
+                processed, changed, zeroed = process_manabox_csv(conn, csv_path, manabox_mode)
+                print(f"Done. Type: {import_kind}. Processed: {processed}. Changed rows: {changed}. Zeroed rows: {zeroed}")
 
             conn.commit()
-            print(f"Done. Type: {import_kind}. Processed: {processed}. Changed rows: {changed}.")
+            
+            
         except Exception:
             conn.rollback()
             raise
@@ -489,6 +547,7 @@ if __name__ == "__main__":
     parser.add_argument("csv_file")
     parser.add_argument("--import-type", choices=["auto", "manual", "manabox"], default="auto")
     parser.add_argument("--manual-mode", choices=["add", "remove", "set"], default="set")
+    parser.add_argument("--manabox-mode", choices=["add", "full_sync", "set_listed"], default="set_listed")
     args = parser.parse_args()
 
-    main(args.csv_file, import_type=args.import_type, manual_mode=args.manual_mode)
+    main(args.csv_file, import_type=args.import_type, manual_mode=args.manual_mode, manabox_mode=args.manabox_mode,)
