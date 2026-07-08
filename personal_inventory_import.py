@@ -461,7 +461,7 @@ def process_manual_csv(conn, csv_path: Path, manual_mode: str) -> tuple[int, int
                 conn.execute(f"ROLLBACK TO SAVEPOINT {savepoint_name}")
                 conn.execute(f"RELEASE SAVEPOINT {savepoint_name}")
                 #print(f"Manual line {line_num}: skipped, error: {e}")
-                rase ValueError(f"Manual line {line_num}: {e}")
+                raise ValueError(f"Manual line {line_num}: {e}")
 
     return processed, changed
 
