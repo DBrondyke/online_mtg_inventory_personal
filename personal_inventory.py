@@ -431,7 +431,7 @@ def show_admin_panel() -> None:
                 temp_path = tmp.name
 
             try:
-                run_personal_import(temp_path, import_type=import_type, manual_mode=manual_mode, manabox_mode=manabox_mode,)
+                run_personal_import(temp_path, import_type=import_type, manual_mode=manual_mode, manabox_mode=manabox_mode)
                 st.success("Import completed.")
             except Exception as e:
                 st.error(f"Import failed: {e}")
