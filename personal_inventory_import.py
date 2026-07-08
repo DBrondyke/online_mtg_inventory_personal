@@ -509,7 +509,8 @@ def process_manabox_csv(conn, csv_path: Path, manabox_mode: str) -> tuple[int, i
             except Exception as e:
                 conn.execute(f"ROLLBACK TO SAVEPOINT {savepoint_name}")
                 conn.execute(f"RELEASE SAVEPOINT {savepoint_name}")
-                print(f"ManaBox line {line_num}: skipped, error: {e}")
+                #print(f"ManaBox line {line_num}: skipped, error: {e}")
+                raise ValueError(f"Manual line {line_num}: {e}")
 
     return processed, changed, zeroed
 
