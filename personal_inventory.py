@@ -389,7 +389,7 @@ def show_admin_panel() -> None:
     if import_type_label == "Manual stock CSV":
         manual_mode_label = st.selectbox(
             "Manual mode",
-            ["Set", "Add", "Remove"],
+            ["Add", "Remove", "Set"],
         )
         manual_mode = manual_mode_label.lower()
     else:

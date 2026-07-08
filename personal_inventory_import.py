@@ -189,6 +189,24 @@ def fetch_card_by_id_from_scryfall(scryfall_id: str) -> dict:
     resp.raise_for_status()
     return resp.json()
 
+def fetch_card_by_set_and_number_from_scryfall(set_code: str, collector_number: str) -> dict:
+    resp = requests.get(
+        f"https://api.scryfall.com/cards/{set_code.lower()}/{collector_number}",
+        headers=HEADERS,
+        timeout=20,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+def ensure_card_printing_exists_by_set_and_number(conn, set_code: str, collector_number: str) -> str:
+    scryfall_id = get_scryfall_id_by_set_and_number(conn, set_code, collector_number)
+    if scryfall_id is not None:
+        return scryfall_id
+    
+    card = fetch_card_by_set_and_number_from_scryfall(set_code, collector_number)
+    upsert_card_printing(conn, card)
+    return card["id"]
+
 def create_temp_seen_table(conn) -> None:
     conn.execute(
         """
@@ -431,9 +449,7 @@ def process_manual_csv(conn, csv_path: Path, manual_mode: str) -> tuple[int, int
                 if not set_code or not collector_number:
                     raise ValueError("set_code and collector_number are required")
 
-                scryfall_id = get_scryfall_id_by_set_and_number(conn, set_code, collector_number)
-                if scryfall_id is None:
-                    raise ValueError(f"Card not found in card_printings for {set_code} #{collector_number}")
+                scryfall_id = ensure_card_printing_exists_by_set_and_number(conn, set_code, collector_number)
 
                 result = change_inventory_stock(conn, scryfall_id, finish, quantity, row_mode)
                 conn.execute(f"RELEASE SAVEPOINT {savepoint_name}")
