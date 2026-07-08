@@ -46,8 +46,10 @@ COMMON_SUBTYPES = [
 
 try:
     from personal_inventory_import import main as run_personal_import
-except Exception:
+    IMPORT_ERROR = None
+except Exception as e:
     run_personal_import = None
+    IMPORT_ERROR = str(e)
 
 
 st.set_page_config(
@@ -420,10 +422,11 @@ def show_admin_panel() -> None:
 
         if st.button("Run import", type="primary", width="stretch"):
             if run_personal_import is None:
-                st.error(
-                    "No personal_inventory_import.py module was found. "
-                    "Create a file with a main(csv_path: str) function, then redeploy."
-                )
+                #st.error(
+                #    "No personal_inventory_import.py module was found. "
+                #    "Create a file with a main(csv_path: str) function, then redeploy."
+                #)
+                st.error(f"Importer failed to load: {IMPORT_ERROR}")
                 return
 
             with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp:
