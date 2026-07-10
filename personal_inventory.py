@@ -775,14 +775,19 @@ def show_inventory_page() -> pd.DataFrame:
                 )
 
 def show_admin_page() -> pd.DataFrame:
-    with st.sidebar:
-        st.subheader("Admin Access")
-        if st.session_state.get("admin_authenticated", False):
+    st.subheader("Admin Tools Access")
+    if st.session_state.get("admin_authenticated", False):
+        show_admin_panel()
+            
+        with st.sidebar:
             st.success("Admin tools unlocked")
             st.button("Lock admin tools", on_click=admin_logout, width="stretch")
             st.divider()
-            #st.subheader("Market Price Refresh")
-            st.text("Market Price Refresh")
+            #if st.session_state.get("admin_authenticated", False):
+                #st.success("Admin tools unlocked")
+                #st.button("Lock admin tools", on_click=admin_logout, width="stretch")
+                #st.divider()
+            st.subheader("Market Price Refresh")
             inventory_only = st.checkbox(
                 "Only refresh prices for cards currently in stock",
                 value=True,
@@ -798,12 +803,14 @@ def show_admin_page() -> pd.DataFrame:
                             st.success("Price refresh completed.")
                         except Exception as e:
                             st.error(f"Price refresh failed: {e}")
-        else:
-            password_check()
-            st.caption("Only someone with the admin password can upload or change inventory.")
+    else:
+        password_check()
+        st.caption("Please log in to gain access.")
 
-    if st.session_state.get("admin_authenticated", False):
-        show_admin_panel()
+    #if st.session_state.get("admin_authenticated", False):
+    #    show_admin_panel()
+    #else:
+        
 
 page = st.sidebar.radio(
     "Page",
