@@ -789,12 +789,12 @@ page = st.sidebar.radio(
 
 header_left, header_right = st.columns([1, 6])
 
-    with header_left:
-        st.markdown("## 🃏")
+with header_left:
+    st.markdown("## 🃏")
 
-    with header_right:
-        st.title("Dustin B's Inventory")
-        st.caption("Accessible from Anywhere?")
+with header_right:
+    st.title("Dustin B's Inventory")
+    st.caption("Accessible from Anywhere?")
 
 if page == "Inventory":
     show_inventory_page()
