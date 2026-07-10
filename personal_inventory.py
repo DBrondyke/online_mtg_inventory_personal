@@ -472,6 +472,24 @@ def get_price_history(conn, scryfall_id: str, finish: str) -> pd.DataFrame:
 
 
 def show_market_movers():
+    st.subheader("Market Price Refresh")
+    
+    inventory_only = st.checkbox(
+        "Only refresh prices for cards currently in stock",
+        value=True,
+    )
+    
+    if st.button("Refresh prices"):
+        if run_price_refresh is None:
+            st.error("No refresh_personal_prices.py module was found.")
+        else:
+            with st.spinner("Refreshing prices from Scryfall..."):
+                try:
+                    run_price_refresh(limit_to_inventory_only=inventory_only)
+                    st.success("Price refresh completed.")
+                except Exception as e:
+                    st.error(f"Price refresh failed: {e}")
+    st.divider()
     st.subheader("Market Movers")
     
     col1, col2 = st.columns(2)
@@ -622,23 +640,7 @@ def show_admin_panel() -> None:
             except Exception as e:
                 st.error(f"Import failed: {e}")
     
-    st.subheader("Price Refresh")
     
-    inventory_only = st.checkbox(
-        "Only refresh prices for cards currently in stock",
-        value=True,
-    )
-    
-    if st.button("Refresh prices"):
-        if run_price_refresh is None:
-            st.error("No refresh_personal_prices.py module was found.")
-        else:
-            with st.spinner("Refreshing prices from Scryfall..."):
-                try:
-                    run_price_refresh(limit_to_inventory_only=inventory_only)
-                    st.success("Price refresh completed.")
-                except Exception as e:
-                    st.error(f"Price refresh failed: {e}")
 
 def show_inventory_page() -> pd.DataFrame:
     

@@ -126,6 +126,7 @@ def refresh_prices(limit_to_inventory_only: bool = False) -> tuple[int, int]:
                         usd_price = %s,
                         usd_foil_price = %s,
                         usd_etched_price = %s,
+                        usd_etched_price = %s,
                         updated_at = CURRENT_TIMESTAMP
                     WHERE scryfall_id = %s
                     """,
