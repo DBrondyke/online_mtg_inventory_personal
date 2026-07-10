@@ -470,7 +470,7 @@ def get_price_history(conn, scryfall_id: str, finish: str) -> pd.DataFrame:
     
     return query_df(conn, sql, (scryfall_id, finish))
 
-
+## ADMIN PANEL STUFF ##
 def show_market_movers():
     st.subheader("Market Price Refresh")
     
@@ -574,12 +574,9 @@ def show_market_movers():
     )
     
 
-## ADMIN PANEL STUFF ##
-def show_admin_panel() -> None:
-    st.subheader("Admin Tools")
-    st.caption("Only logged-in admin users can see this section.")
-    
-    #show_market_movers()
+
+def show_csv_import_page():
+    st.subheader("CSV Import")
     
     import_type_label = st.selectbox(
         "Import type",
@@ -639,6 +636,21 @@ def show_admin_panel() -> None:
                 st.success("Import completed.")
             except Exception as e:
                 st.error(f"Import failed: {e}")
+    
+def show_admin_panel() -> None:
+    st.subheader("Admin Tools")
+    st.caption("Only logged-in admin users can see this section.")
+    
+    tab1, tab2 = st.tabs(["Market Movement", "CSV Import"])
+    
+    #show_market_movers()
+    
+    with tab1:
+        show_market_movers()
+    
+    with tab2:
+        show_csv_import_page() 
+    
     
     
 
