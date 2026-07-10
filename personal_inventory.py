@@ -656,6 +656,14 @@ def show_admin_panel() -> None:
 
 def show_inventory_page() -> pd.DataFrame:
     
+    header_left, header_right = st.columns([1, 6])
+
+    with header_left:
+        st.markdown("## 🃏")
+
+    with header_right:
+        st.title("Dustin B's Inventory")
+        st.caption("Accessible from Anywhere?")
 
     with st.sidebar:
         st.divider()
@@ -797,23 +805,13 @@ def show_admin_page() -> pd.DataFrame:
 
 page = st.sidebar.radio(
     "Page",
-    ["Inventory", "Market Movers", "Admin Tools"],
+    ["Inventory", "Admin Tools"],
     index=0,
 )
 
-header_left, header_right = st.columns([1, 6])
-
-with header_left:
-    st.markdown("## 🃏")
-
-with header_right:
-    st.title("Dustin B's Inventory")
-    st.caption("Accessible from Anywhere?")
 
 if page == "Inventory":
     show_inventory_page()
-elif page == "Market Movers":
-    show_market_movers()
 else:
     show_admin_page()
     
