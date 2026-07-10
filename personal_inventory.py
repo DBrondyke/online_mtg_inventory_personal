@@ -779,7 +779,7 @@ def show_admin_page() -> pd.DataFrame:
             st.button("Lock admin tools", on_click=admin_logout)#, width="stretch")
         with c1:
             col1, col2, col3 = st.columns([2,1,2])
-            with col1:
+            #with col1:
                 #st.success("Admin tools unlocked")
                 
             with col3:
