@@ -561,7 +561,7 @@ def show_admin_panel() -> None:
     st.subheader("Admin Tools")
     st.caption("Only logged-in admin users can see this section.")
     
-    show_market_movers()
+    #show_market_movers()
     
     import_type_label = st.selectbox(
         "Import type",
