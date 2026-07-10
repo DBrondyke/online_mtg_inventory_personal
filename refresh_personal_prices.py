@@ -115,8 +115,8 @@ def refresh_prices(limit_to_inventory_only: bool = False) -> tuple[int, int]:
                         (
                             card.get("id"),
                             finish,
-                            market_price
-                        )
+                            market_price,
+                        ),
                     )
 
                 conn.execute(

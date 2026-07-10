@@ -376,6 +376,79 @@ def search_inventory(
 
     return pd.DataFrame([dict(r) for r in rows], columns=columns)
 
+### Price Tracking ###
+def get_price_movers(conn, top_n: int = 10, direction: str = "Both") -> pd.DataFrame:
+    movement_filter = ""
+    
+    if direction == "Increases":
+        movement_filter = "AND lvp.price_change > 0"
+    elif direction == "Decreases":
+        movement_filter = "AND lvp.price_change < 0"
+    
+    sql = f"""
+    WITH ranked_snapshots AS (
+        SELECT
+            cps.scryfall_id,
+            cps.finish,
+            cps.market_price,
+            cps.snapshot_at,
+            ROW_NUMBER() OVER (
+                PARTITION BY cps.scryfall_id, cps.finish
+                ORDER BY cps.snapshot_at DESC
+            ) as rn
+        FROM card_price_snapshots cps
+        WHERE cps.market_price IS NOT NULL
+    ),
+    latest_vs_previous AS (
+        SELECT
+            latest.scryfall_id,
+            latest.finish,
+            latest.market_price AS current_price,
+            previous.market_price AS previous_price,
+            latest.snapshot_at AS current_snapshot_at,
+            previous.snapshot_at AS previous_snapshot_at,
+            latest.market_price - previous.market_price AS price_change,
+            ROUND(
+                ((latest.market_price - previous.market_price) / NULLIF(previous.market_price, 0)) * 100, 2
+            ) AS percent_change
+        FROM ranked_snapshots latest
+        JOIN ranked_snapshots previous
+        ON previous.scryfall_id = latest.scryfall_id
+        AND previous.finish = latest.finish
+        AND previous.rn = 2
+        WHERE latest.rn = 1
+    )
+    SELECT
+        cp.card_name,
+        cp.set_name,
+        cp.set_code,
+        cp.collector_number,
+        lvp.scryfall_id,
+        lvp.finish,
+        lvp.previous_price,
+        lvp.current_price,
+        lvp.price_change,
+        lvp.percent_change,
+        lvp.previous_snapshot_at,
+        lvp.current_snapshot_at,
+        i.stock
+    FROM latest_vs_previous lvp
+    JOIN card_printings cp
+    ON cp.scryfall_id = lvp.scryfall_id
+    JOIN inventory i
+    ON i.scryfall_id = lvp.scryfall_id
+    AND i.finish = lvp.finish
+    WHERE i.stock > 0
+    {movement_filter}
+    ORDER BY ABS(lvp.price_change) DESC
+    LIMIT %s
+    """
+    
+    return pd.read_sql_query(sql, conn, params=(top_n,))
+
+
+
+## ADMIN PANEL STUFF ##
 def show_admin_panel() -> None:
     st.subheader("Admin Tools")
     st.caption("Only logged-in admin users can see this section.")
