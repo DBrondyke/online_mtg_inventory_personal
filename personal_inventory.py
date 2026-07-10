@@ -491,7 +491,7 @@ def show_market_movers():
     
     display_df = movers_df.copy()
     
-    display_df["previous_price"] = display_df["previous_price"].map(lambda x: f"%{x.2f}")
+    display_df["previous_price"] = display_df["previous_price"].map(lambda x: f"%{x:.2f}")
     display_df["current_price"] = display_df["current_price"].map(lambda x: f"${x:.2f}")
     display_df["price_change"] = display_df["price_change"].map(lambda x: f"${x:+.2f}")
     display_df["percent_change"] = display_df["percent_change"].map(
