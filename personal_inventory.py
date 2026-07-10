@@ -775,11 +775,13 @@ def show_admin_page() -> pd.DataFrame:
         st.subheader("Admin Tools Access")
     
     if st.session_state.get("admin_authenticated", False):
+        with c2:
+            st.button("Lock admin tools", on_click=admin_logout)#, width="stretch")
         with c1:
             col1, col2, col3 = st.columns([2,1,2])
             with col1:
                 #st.success("Admin tools unlocked")
-                st.button("Lock admin tools", on_click=admin_logout, width="stretch")
+                
             with col3:
                 st.write("Refresh Market Prices")
                 inventory_only = st.checkbox(
