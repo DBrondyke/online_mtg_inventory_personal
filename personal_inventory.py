@@ -774,26 +774,30 @@ def show_admin_page() -> pd.DataFrame:
     c1, c2, c3 = st.columns([3,2,3])
     if st.session_state.get("admin_authenticated", False):
         with c1:
-            st.success("Admin tools unlocked")
+            col1, col2 = st.columns([3,2])
+            with col1:
+                st.success("Admin tools unlocked")
+            with col2:
+                st.button("Lock admin tools", on_click=admin_logout, width="stretch")
         with c2:
-            st.button("Lock admin tools", on_click=admin_logout)
-        with c3:
             #st.subheader("Market Price Refresh")
-            inventory_only = st.checkbox(
-                "Only refresh prices for cards currently in stock",
-                value=True,
-            )
-            
-            if st.button("Refresh Prices", width="stretch"):
-                if run_price_refresh is None:
-                    st.error("No refresh_personal_prices.py module was found.")
-                else:
-                    with st.spinner("Refreshing prices from Scryfall..."):
-                        try:
-                            run_price_refresh(limit_to_inventory_only=inventory_only)
-                            st.success("Price refresh completed.")
-                        except Exception as e:
-                            st.error(f"Price refresh failed: {e}")
+            col3, col4 = st.columns([3,2])
+            with col3:
+                inventory_only = st.checkbox(
+                    "Only refresh prices for cards currently in stock",
+                    value=True,
+                )
+            with col4:
+                if st.button("Refresh Prices", width="stretch"):
+                    if run_price_refresh is None:
+                        st.error("No refresh_personal_prices.py module was found.")
+                    else:
+                        with st.spinner("Refreshing prices from Scryfall..."):
+                            try:
+                                run_price_refresh(limit_to_inventory_only=inventory_only)
+                                st.success("Price refresh completed.")
+                            except Exception as e:
+                                st.error(f"Price refresh failed: {e}")
         show_admin_panel()
             
         #with st.sidebar:
