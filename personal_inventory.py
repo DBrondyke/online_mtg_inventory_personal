@@ -774,16 +774,17 @@ def show_admin_page() -> pd.DataFrame:
     c1, c2, c3 = st.columns([3,2,3])
     if st.session_state.get("admin_authenticated", False):
         with c1:
-            col1, col2 = st.columns([2,3])
+            col1, col2, col3 = st.columns([2,1,2])
             with col1:
-                st.success("Admin tools unlocked")
+                #st.success("Admin tools unlocked")
                 st.button("Lock admin tools", on_click=admin_logout, width="stretch")
-            with col2:
+            with col3:
+                st.write("Refresh Market Prices")
                 inventory_only = st.checkbox(
                     "Only refresh prices for cards currently in stock",
                     value=True,
                 )
-                if st.button("Refresh Prices", width="stretch"):
+                if st.button("Refresh", width="stretch"):
                     if run_price_refresh is None:
                         st.error("No refresh_personal_prices.py module was found.")
                     else:
