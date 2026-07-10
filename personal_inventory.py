@@ -770,8 +770,10 @@ def show_inventory_page() -> pd.DataFrame:
                 )
 
 def show_admin_page() -> pd.DataFrame:
-    st.subheader("Admin Tools Access")
     c1, c2, c3 = st.columns([3,2,3])
+    with c1:
+        st.subheader("Admin Tools Access")
+    
     if st.session_state.get("admin_authenticated", False):
         with c1:
             col1, col2, col3 = st.columns([2,1,2])
