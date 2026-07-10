@@ -770,13 +770,14 @@ def show_inventory_page() -> pd.DataFrame:
                 )
 
 def show_admin_page() -> pd.DataFrame:
-    c1, c2, c3 = st.columns([3,2,3])
+    c1, c2, c3 = st.columns([3,2,3], vertical_alignment="bottom")
+    c4, c5, c6 = st.columns([3,2,3], vertical_alignment="bottom")
     with c1:
         st.subheader("Admin Tools Access")
     
     if st.session_state.get("admin_authenticated", False):
         with c3:
-            st.button("Lock admin tools", on_click=admin_logout, type="primary")#, width="stretch")
+            st.button("Lock admin tools", on_click=admin_logout, type="primary", horizontal_alignment="right")#, width="stretch")
         with c1:
             col1, col2 = st.columns([1, 2])
             with col1:
@@ -811,7 +812,7 @@ def show_admin_page() -> pd.DataFrame:
             
     else:
         
-        with c2:
+        with c5:
             password_check()
             st.caption("Please log in to gain access.")
 
