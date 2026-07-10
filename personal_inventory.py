@@ -622,12 +622,7 @@ def show_csv_import_page():
     
 def show_admin_panel() -> None:
     
-    st.subheader("Admin Tools")
-    #st.caption("Only logged-in admin users can see this section.")
-    
     tab1, tab2 = st.tabs(["Market Movement", "CSV Import"])
-    
-    #show_market_movers()
     
     with tab1:
         show_market_movers()
@@ -776,18 +771,14 @@ def show_inventory_page() -> pd.DataFrame:
 
 def show_admin_page() -> pd.DataFrame:
     st.subheader("Admin Tools Access")
+    c1, c2, c3 = st.columns([3,2,3])
     if st.session_state.get("admin_authenticated", False):
-        show_admin_panel()
-            
-        with st.sidebar:
+        with c1:
             st.success("Admin tools unlocked")
-            st.button("Lock admin tools", on_click=admin_logout, width="stretch")
-            st.divider()
-            #if st.session_state.get("admin_authenticated", False):
-                #st.success("Admin tools unlocked")
-                #st.button("Lock admin tools", on_click=admin_logout, width="stretch")
-                #st.divider()
-            st.subheader("Market Price Refresh")
+        with c2:
+            st.button("Lock admin tools", on_click=admin_logout)
+        with c3:
+            #st.subheader("Market Price Refresh")
             inventory_only = st.checkbox(
                 "Only refresh prices for cards currently in stock",
                 value=True,
@@ -803,9 +794,23 @@ def show_admin_page() -> pd.DataFrame:
                             st.success("Price refresh completed.")
                         except Exception as e:
                             st.error(f"Price refresh failed: {e}")
+        show_admin_panel()
+            
+        #with st.sidebar:
+            
+            
+            #st.divider()
+            #if st.session_state.get("admin_authenticated", False):
+                #st.success("Admin tools unlocked")
+                #st.button("Lock admin tools", on_click=admin_logout, width="stretch")
+                #st.divider()
+            #st.subheader("Market Price Refresh")
+            
     else:
-        password_check()
-        st.caption("Please log in to gain access.")
+        
+        with c2:
+            password_check()
+            st.caption("Please log in to gain access.")
 
     #if st.session_state.get("admin_authenticated", False):
     #    show_admin_panel()
