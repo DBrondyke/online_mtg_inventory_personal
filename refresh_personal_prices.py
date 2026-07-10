@@ -91,6 +91,33 @@ def refresh_prices(limit_to_inventory_only: bool = False) -> tuple[int, int]:
 
             for card in cards:
                 prices = card.get("prices", {}) or {}
+                
+                price_rows = [
+                    ("nonfoil", clean_price(prices.get("usd"))),
+                    ("foil", clean_price(prices.get("usd_foil"))),
+                    ("etched", clean_price(prices.get("usd_etched"))),
+                ]
+                
+                for finish, market_price in price_rows:
+                    if market_price is None:
+                        continue
+                    
+                    conn.execute(
+                        """
+                        INSERT INTO card_price_snapshots (
+                            scryfall_id,
+                            finish,
+                            market_price,
+                            snapshot_at
+                        )
+                        VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
+                        """,
+                        (
+                            card.get("id"),
+                            finish,
+                            market_price
+                        )
+                    )
 
                 conn.execute(
                     """
