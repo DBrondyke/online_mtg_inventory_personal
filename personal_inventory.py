@@ -472,24 +472,7 @@ def get_price_history(conn, scryfall_id: str, finish: str) -> pd.DataFrame:
 
 ## ADMIN PANEL STUFF ##
 def show_market_movers():
-    st.subheader("Market Price Refresh")
     
-    inventory_only = st.checkbox(
-        "Only refresh prices for cards currently in stock",
-        value=True,
-    )
-    
-    if st.button("Refresh prices"):
-        if run_price_refresh is None:
-            st.error("No refresh_personal_prices.py module was found.")
-        else:
-            with st.spinner("Refreshing prices from Scryfall..."):
-                try:
-                    run_price_refresh(limit_to_inventory_only=inventory_only)
-                    st.success("Price refresh completed.")
-                except Exception as e:
-                    st.error(f"Price refresh failed: {e}")
-    st.divider()
     st.subheader("Market Movers")
     
     col1, col2 = st.columns(2)
@@ -638,8 +621,9 @@ def show_csv_import_page():
                 st.error(f"Import failed: {e}")
     
 def show_admin_panel() -> None:
+    
     st.subheader("Admin Tools")
-    st.caption("Only logged-in admin users can see this section.")
+    #st.caption("Only logged-in admin users can see this section.")
     
     tab1, tab2 = st.tabs(["Market Movement", "CSV Import"])
     
@@ -796,6 +780,24 @@ def show_admin_page() -> pd.DataFrame:
         if st.session_state.get("admin_authenticated", False):
             st.success("Admin tools unlocked")
             st.button("Lock admin tools", on_click=admin_logout, width="stretch")
+            st.divider()
+            #st.subheader("Market Price Refresh")
+            st.text("Market Price Refresh")
+            inventory_only = st.checkbox(
+                "Only refresh prices for cards currently in stock",
+                value=True,
+            )
+            
+            if st.button("Refresh Prices", width="stretch"):
+                if run_price_refresh is None:
+                    st.error("No refresh_personal_prices.py module was found.")
+                else:
+                    with st.spinner("Refreshing prices from Scryfall..."):
+                        try:
+                            run_price_refresh(limit_to_inventory_only=inventory_only)
+                            st.success("Price refresh completed.")
+                        except Exception as e:
+                            st.error(f"Price refresh failed: {e}")
         else:
             password_check()
             st.caption("Only someone with the admin password can upload or change inventory.")
