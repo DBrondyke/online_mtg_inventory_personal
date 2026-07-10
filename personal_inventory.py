@@ -446,12 +446,112 @@ def get_price_movers(conn, top_n: int = 10, direction: str = "Both") -> pd.DataF
     
     return pd.read_sql_query(sql, conn, params=(top_n,))
 
+def get_price_history(conn, scryfall_id: str, finish: str) -> pd.DataFrame:
+    sql = """
+    SELECT
+        snapshot_at,
+        market_price
+    FROM card_price_snapshots
+    WHERE scryfall_id = %s
+    AND finish = %s
+    AND market_price IS NOT NULL
+    ORDER BY snapshot_at
+    """
+    
+    return pd.read_sql_query(sql, conn, params=(scryfall_id, finish))
 
+
+def show_market_movers():
+    st.subheader("Market Movers")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        top_n = st.selectbox(
+            "Show top",
+            [10, 20, 50],
+            index=0,
+            key="market_movers_top_n",
+        )
+    
+    with col2:
+        direction = st.selectbox(
+            "Movement",
+            ["Both", "Increases", "Decreases"],
+            index=0,
+            key="market_movers_direction",
+        )
+    
+    with get_connection() as conn:
+        movers_df = get_price_movers(conn, top_n, direction)
+    
+    if movers_df.empty:
+        st.info("No price movement data yet. Run at least two price refreshes to compare movement.")
+        return
+    
+    display_df = movers_df.copy()
+    
+    display_df["previous_price"] = display_df["previous_price"].map(lambda x: f"%{x.2f}")
+    display_df["current_price"] = display_df["current_price"].map(lambda x: f"${x:.2f}")
+    display_df["price_change"] = display_df["price_change"].map(lambda x: f"${x:+.2f}")
+    display_df["percent_change"] = display_df["percent_change"].map(
+        lambda x: f"{x:+.2f}%" if pd.notna(x) else "—"
+    )
+    
+    event = st.dataframe(
+        display_df[
+            [
+                "card_name",
+                "set_name",
+                "finish",
+                "stock",
+                "previous_price",
+                "current_price",
+                "price_change",
+                "percent_change",
+            ]
+        ],
+        use_container_width=True,
+        hide_index=True,
+        on_select="rerun",
+        selection_mode="single-row",
+        key="market_movers_table",
+    )
+    
+    selected_rows = event.selection.rows
+    
+    if not selected_rows:
+        st.write("Select a card to view its price history.")
+        return
+    
+    selected = movers_df.iloc[selected_rows[0]]
+    
+    st.subheader(f"{selected['card_name']} Price History")
+    
+    with get_connection() as conn:
+        history_df = get_price_history(
+            conn,
+            selected["scryfall_id"],
+            selected["finish"],
+        )
+    
+    if history_df.empty:
+        st.info("No chart data available for this card yet.")
+        return
+    
+    st.line_chart(
+        history_df,
+        x="snapshot_at",
+        y="market_price",
+    )
+    
 
 ## ADMIN PANEL STUFF ##
 def show_admin_panel() -> None:
     st.subheader("Admin Tools")
     st.caption("Only logged-in admin users can see this section.")
+    
+    show_market_movers()
     
     import_type_label = st.selectbox(
         "Import type",
