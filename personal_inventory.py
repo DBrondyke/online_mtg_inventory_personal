@@ -454,7 +454,7 @@ def get_price_movers(conn, top_n: int = 10, direction: str = "Both") -> pd.DataF
     LIMIT %s
     """
     
-    return query_df(conn, sql (top_n,))
+    return query_df(conn, sql, (top_n,))
 
 def get_price_history(conn, scryfall_id: str, finish: str) -> pd.DataFrame:
     sql = """
