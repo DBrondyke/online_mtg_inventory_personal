@@ -376,6 +376,16 @@ def search_inventory(
 
     return pd.DataFrame([dict(r) for r in rows], columns=columns)
 
+### SQL Query Helper ###
+
+def query_df(conn, sql: str, params: tuple = ()) -> pd.DataFrame:
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(sql, params)
+        rows = cur.fetchall()
+    
+    return pd.DataFrame(rows)
+
+
 ### Price Tracking ###
 def get_price_movers(conn, top_n: int = 10, direction: str = "Both") -> pd.DataFrame:
     movement_filter = ""
@@ -444,7 +454,7 @@ def get_price_movers(conn, top_n: int = 10, direction: str = "Both") -> pd.DataF
     LIMIT %s
     """
     
-    return pd.read_sql_query(sql, conn, params=(top_n,))
+    return query_df(conn, sql (top_n,))
 
 def get_price_history(conn, scryfall_id: str, finish: str) -> pd.DataFrame:
     sql = """
@@ -458,7 +468,7 @@ def get_price_history(conn, scryfall_id: str, finish: str) -> pd.DataFrame:
     ORDER BY snapshot_at
     """
     
-    return pd.read_sql_query(sql, conn, params=(scryfall_id, finish))
+    return query_df(conn, sql, (scryfall_id, finish))
 
 
 def show_market_movers():
@@ -619,156 +629,178 @@ def show_admin_panel() -> None:
         value=True,
     )
     
-    if st.button("Refresh prices", width="stretch"):
-        try:
-            run_price_refresh(limit_to_inventory_only=inventory_only)
-            st.success("Price refresh completed.")
-        except Exception as e:
-            st.error(f"Price refresh failed: {e}")
+    if st.button("Refresh prices"):
+        if run_price_refresh is None:
+            st.error("No refresh_personal_prices.py module was found.")
+        else:
+            with st.spinner("Refreshing prices from Scryfall..."):
+                try:
+                    run_price_refresh(limit_to_inventory_only=inventory_only)
+                    st.success("Price refresh completed.")
+                except Exception as e:
+                    st.error(f"Price refresh failed: {e}")
 
+def show_inventory_page() -> pd.DataFrame:
+    
+
+    with st.sidebar:
+        st.divider()
+        st.header("Filters")
+        name_query = st.text_input("Card name")
+        oracle_query = st.text_input("Oracle text contains")
+        set_query = st.text_input("Set name or code")
+        color_filter = st.selectbox(
+            "Color",
+            ["All", "White", "Blue", "Black", "Red", "Green", "Colorless"],
+            index=0,
+        )
+        color_mode = st.selectbox(
+            "Color match mode",
+            [
+                "Contains all selected colors",
+                "Contains any selected color",
+                "Exactly these colors",
+                "Commander identity",
+            ],
+            index=0,
+        )
+        selected_types = st.multiselect("Type contains", TYPE_OPTIONS)
+        type_mode = st.selectbox(
+            "Type match mode",
+            ["Must include any selected type", "Must include all selected types"],
+            index=0,
+        )
+
+        selected_subtypes = st.multiselect("Subtype contains", COMMON_SUBTYPES)
+        subtype_text = st.text_input("Extra subtypes (comma-separated)")
+        subtype_mode = st.selectbox(
+            "Subtype match mode",
+            ["Must include any selected subtype", "Must include all selected subtypes"],
+            index=0,
+        )
+        max_price_enabled = st.checkbox("Set max price")
+        max_price = None
+        if max_price_enabled:
+            max_price = st.number_input("Max price", min_value=0.0, step=1.0, format="%.2f")
+        in_stock_only = st.checkbox("Only show cards in stock", value=True)
+        min_stock = st.number_input("Minimum stock", min_value=0, value=0, step=1)
+        
+
+    results_df = search_inventory(
+        name_query=name_query,
+        set_query=set_query,
+        color_filter=color_filter,
+        max_price=max_price,
+        in_stock_only=in_stock_only,
+        oracle_query=oracle_query,
+        color_mode=color_mode,
+        selected_types=selected_types,
+        type_mode=type_mode,
+        selected_subtypes=selected_subtypes,
+        subtype_text=subtype_text,
+        subtype_mode=subtype_mode,
+        min_stock=min_stock,
+    )
+
+    left, right = st.columns([5,2])
+
+    with left:
+        st.write(f"Matches: {len(results_df)}")
+        if results_df.empty:
+            st.info("No cards match the current filters.")
+        else:
+            display_df = results_df[
+                [
+                    "card_name",
+                    "set_name",
+                    "mana_cost",
+                    "color_identity",
+                    "type_line",
+                    "oracle_text",
+                    "price",
+                    "total_stock",
+                    "set_code",
+                    "collector_number",
+                ]
+            ].copy()
+            
+            display_df["stock_count"] = display_df["total_stock"].fillna(0).astype(int)
+            display_df["mana_cost_display"] = display_df["mana_cost"].apply(lambda v: clean_text(v, "-"))
+            display_df["color_identity_display"] = display_df["color_identity"].apply(lambda v: clean_text(v, "Colorless"))
+            display_df["oracle_text_display"] = display_df["oracle_text"].apply(lambda v: clean_text(v, "-"))
+            
+            event = render_inventory_table(display_df)
+        
+    with right:
+        if results_df.empty:
+            st.write("Select a card to view details.")
+        else:
+            selected_rows = get_selected_rows()
+            
+            # Guard against stale selection after filters change
+            if selected_rows and selected_rows[0] >= len(results_df):
+                selected_rows = []
+        
+            #Put above match count
+            if not selected_rows:
+                st.write("Select a card to view details.")
+            else:
+                selected_row = results_df.iloc[selected_rows[0]]
+                
+                st.subheader(selected_row["card_name"])
+                
+                st.write(f"**Set:** {selected_row['set_name']} ({selected_row['set_code']})")
+                st.write(f"**Collector #:** {selected_row['collector_number']}")
+                st.write(f"**Cost:** {clean_text(selected_row['mana_cost'],'-')}")
+                st.write(f"**Color:** {clean_text(selected_row['color_identity'],'Colorless')}")
+                st.write(f"**Type:** {selected_row['type_line'] or '-'}")
+                st.write(f"**Stock:** {int(selected_row['total_stock'])}")
+                st.write(
+                    f"**Price:** ${float(selected_row['price']):.2f}"
+                    if selected_row["price"] is not None 
+                    else "**Price:** -"
+                )
+
+                st.text_area(
+                    "Oracle Text",
+                    value=clean_text(selected_row["oracle_text"],"-"),
+                    height=220,
+                    disabled=True,
+                )
+
+def show_admin_page() -> pd.DataFrame:
+    with st.sidebar:
+        st.subheader("Admin Access")
+        if st.session_state.get("admin_authenticated", False):
+            st.success("Admin tools unlocked")
+            st.button("Lock admin tools", on_click=admin_logout, width="stretch")
+        else:
+            password_check()
+            st.caption("Only someone with the admin password can upload or change inventory.")
+
+    if st.session_state.get("admin_authenticated", False):
+        show_admin_panel()
+
+page = st.sidebar.radio(
+    "Page",
+    ["Inventory", "Market Movers", "Admin Tools"],
+    index=0,
+)
 
 header_left, header_right = st.columns([1, 6])
 
-with header_left:
-    st.markdown("## 🃏")
+    with header_left:
+        st.markdown("## 🃏")
 
-with header_right:
-    st.title("Dustin B's Inventory")
-    st.caption("Public browse view with login-protected admin upload tools")
+    with header_right:
+        st.title("Dustin B's Inventory")
+        st.caption("Accessible from Anywhere?")
 
-with st.sidebar:
-    st.header("Filters")
-    name_query = st.text_input("Card name")
-    oracle_query = st.text_input("Oracle text contains")
-    set_query = st.text_input("Set name or code")
-    color_filter = st.selectbox(
-        "Color",
-        ["All", "White", "Blue", "Black", "Red", "Green", "Colorless"],
-        index=0,
-    )
-    color_mode = st.selectbox(
-        "Color match mode",
-        [
-            "Contains all selected colors",
-            "Contains any selected color",
-            "Exactly these colors",
-            "Commander identity",
-        ],
-        index=0,
-    )
-    selected_types = st.multiselect("Type contains", TYPE_OPTIONS)
-    type_mode = st.selectbox(
-        "Type match mode",
-        ["Must include any selected type", "Must include all selected types"],
-        index=0,
-    )
-
-    selected_subtypes = st.multiselect("Subtype contains", COMMON_SUBTYPES)
-    subtype_text = st.text_input("Extra subtypes (comma-separated)")
-    subtype_mode = st.selectbox(
-        "Subtype match mode",
-        ["Must include any selected subtype", "Must include all selected subtypes"],
-        index=0,
-    )
-    max_price_enabled = st.checkbox("Set max price")
-    max_price = None
-    if max_price_enabled:
-        max_price = st.number_input("Max price", min_value=0.0, step=1.0, format="%.2f")
-    in_stock_only = st.checkbox("Only show cards in stock", value=True)
-    min_stock = st.number_input("Minimum stock", min_value=0, value=0, step=1)
-    st.divider()
-    st.subheader("Admin Access")
-    if st.session_state.get("admin_authenticated", False):
-        st.success("Admin tools unlocked")
-        st.button("Lock admin tools", on_click=admin_logout, width="stretch")
-    else:
-        password_check()
-        st.caption("Only someone with the admin password can upload or change inventory.")
-
-results_df = search_inventory(
-    name_query=name_query,
-    set_query=set_query,
-    color_filter=color_filter,
-    max_price=max_price,
-    in_stock_only=in_stock_only,
-    oracle_query=oracle_query,
-    color_mode=color_mode,
-    selected_types=selected_types,
-    type_mode=type_mode,
-    selected_subtypes=selected_subtypes,
-    subtype_text=subtype_text,
-    subtype_mode=subtype_mode,
-    min_stock=min_stock,
-)
-
-left, right = st.columns([5,2])
-
-with left:
-    st.write(f"Matches: {len(results_df)}")
-    if results_df.empty:
-        st.info("No cards match the current filters.")
-    else:
-        display_df = results_df[
-            [
-                "card_name",
-                "set_name",
-                "mana_cost",
-                "color_identity",
-                "type_line",
-                "oracle_text",
-                "price",
-                "total_stock",
-                "set_code",
-                "collector_number",
-            ]
-        ].copy()
-        
-        display_df["stock_count"] = display_df["total_stock"].fillna(0).astype(int)
-        display_df["mana_cost_display"] = display_df["mana_cost"].apply(lambda v: clean_text(v, "-"))
-        display_df["color_identity_display"] = display_df["color_identity"].apply(lambda v: clean_text(v, "Colorless"))
-        display_df["oracle_text_display"] = display_df["oracle_text"].apply(lambda v: clean_text(v, "-"))
-        
-        event = render_inventory_table(display_df)
+if page == "Inventory":
+    show_inventory_page()
+elif page == "Market Movers":
+    show_market_movers()
+else:
+    show_admin_page()
     
-with right:
-    if results_df.empty:
-        st.write("Select a card to view details.")
-    else:
-        selected_rows = get_selected_rows()
-        
-        # Guard against stale selection after filters change
-        if selected_rows and selected_rows[0] >= len(results_df):
-            selected_rows = []
-    
-        #Put above match count
-        if not selected_rows:
-            st.write("Select a card to view details.")
-        else:
-            selected_row = results_df.iloc[selected_rows[0]]
-            
-            st.subheader(selected_row["card_name"])
-            
-            st.write(f"**Set:** {selected_row['set_name']} ({selected_row['set_code']})")
-            st.write(f"**Collector #:** {selected_row['collector_number']}")
-            st.write(f"**Cost:** {clean_text(selected_row['mana_cost'],'-')}")
-            st.write(f"**Color:** {clean_text(selected_row['color_identity'],'Colorless')}")
-            st.write(f"**Type:** {selected_row['type_line'] or '-'}")
-            st.write(f"**Stock:** {int(selected_row['total_stock'])}")
-            st.write(
-                f"**Price:** ${float(selected_row['price']):.2f}"
-                if selected_row["price"] is not None 
-                else "**Price:** -"
-            )
-
-            st.text_area(
-                "Oracle Text",
-                value=clean_text(selected_row["oracle_text"],"-"),
-                height=220,
-                disabled=True,
-            )
-
-if st.session_state.get("admin_authenticated", False):
-    st.divider()
-    show_admin_panel()
-
-st.caption("Public browse view. Admin import tools require login and approved email.")
+st.caption("Cool stuff only. Bro.")
