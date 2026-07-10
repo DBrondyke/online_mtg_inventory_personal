@@ -88,7 +88,7 @@ def password_check() -> bool:
             st.session_state["admin_authenticated"] = False
             st.session_state["admin_login_error"] = "Incorrect password."
     
-    st.subheader("Admin Access")
+    #st.subheader("Admin Access")
     st.text_input(
         "Admin password",
         type="password",
@@ -803,4 +803,4 @@ elif page == "Market Movers":
 else:
     show_admin_page()
     
-st.caption("Cool stuff only. Bro.")
+st.caption("Designed by DB Productions 2026")
