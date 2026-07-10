@@ -777,7 +777,8 @@ def show_admin_page() -> pd.DataFrame:
     
     if st.session_state.get("admin_authenticated", False):
         with c3:
-            st.button("Lock admin tools", on_click=admin_logout, type="primary", horizontal_alignment="right")#, width="stretch")
+            with st.container(horizontal=True, horizontal_alignment="right"):
+                st.button("Lock admin tools", on_click=admin_logout, type="primary")#, width="stretch")
         with c1:
             col1, col2 = st.columns([1, 2])
             with col1:
