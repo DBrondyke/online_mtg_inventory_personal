@@ -775,20 +775,12 @@ def show_admin_page() -> pd.DataFrame:
         st.subheader("Admin Tools Access")
     
     if st.session_state.get("admin_authenticated", False):
-        with c2:
-            st.button("Lock admin tools", on_click=admin_logout)#, width="stretch")
+        with c3:
+            st.button("Lock admin tools", on_click=admin_logout, type="primary")#, width="stretch")
         with c1:
-            col1, col2, col3 = st.columns([2,1,2])
-            #with col1:
-                #st.success("Admin tools unlocked")
-                
-            with col3:
-                st.write("Refresh Market Prices")
-                inventory_only = st.checkbox(
-                    "Only refresh prices for cards currently in stock",
-                    value=True,
-                )
-                if st.button("Refresh", width="stretch"):
+            col1, col2 = st.columns([1, 2])
+            with col1:
+                if st.button("Refresh Market Prices", width="stretch"):
                     if run_price_refresh is None:
                         st.error("No refresh_personal_prices.py module was found.")
                     else:
@@ -798,6 +790,12 @@ def show_admin_page() -> pd.DataFrame:
                                 st.success("Price refresh completed.")
                             except Exception as e:
                                 st.error(f"Price refresh failed: {e}")
+            with col2:
+                inventory_only = st.checkbox(
+                    "Only refresh prices for cards currently in stock",
+                    value=True,
+                )
+                
         
         show_admin_panel()
             
