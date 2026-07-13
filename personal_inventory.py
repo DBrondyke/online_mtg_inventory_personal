@@ -784,7 +784,7 @@ def show_admin_page() -> pd.DataFrame:
                 "Only refresh prices for cards currently in stock",
                 value=True,
             )
-            if st.button("Refresh Market Prices", width="stretch"):
+            if st.button("Refresh Market Prices"):
                 if run_price_refresh is None:
                     st.error("No refresh_personal_prices.py module was found.")
                 else:
