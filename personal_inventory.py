@@ -780,23 +780,21 @@ def show_admin_page() -> pd.DataFrame:
             with st.container(horizontal=True, horizontal_alignment="right"):
                 st.button("Lock admin tools", on_click=admin_logout, type="primary")#, width="stretch")
         with c1:
-            col1, col2 = st.columns([1, 2])
-            with col1:
-                if st.button("Refresh Market Prices", width="stretch"):
-                    if run_price_refresh is None:
-                        st.error("No refresh_personal_prices.py module was found.")
-                    else:
-                        with st.spinner("Refreshing prices from Scryfall..."):
-                            try:
-                                run_price_refresh(limit_to_inventory_only=inventory_only)
-                                st.success("Price refresh completed.")
-                            except Exception as e:
-                                st.error(f"Price refresh failed: {e}")
-            with col2:
-                inventory_only = st.checkbox(
-                    "Only refresh prices for cards currently in stock",
-                    value=True,
-                )
+            inventory_only = st.checkbox(
+                "Only refresh prices for cards currently in stock",
+                value=True,
+            )
+            if st.button("Refresh Market Prices", width="stretch"):
+                if run_price_refresh is None:
+                    st.error("No refresh_personal_prices.py module was found.")
+                else:
+                    with st.spinner("Refreshing prices from Scryfall..."):
+                        try:
+                            run_price_refresh(limit_to_inventory_only=inventory_only)
+                            st.success("Price refresh completed.")
+                        except Exception as e:
+                            st.error(f"Price refresh failed: {e}")
+            
                 
         
         show_admin_panel()
